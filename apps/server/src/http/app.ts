@@ -6,7 +6,8 @@ import { env, isProd } from '../env.js';
 import { HttpError } from '../lib/errors.js';
 import { authRoutes } from './routes/auth.js';
 import { userRoutes, avatarRoutes } from './routes/users.js';
-import { chatRoutes } from './routes/chats.js';
+import { chatRoutes, channelRoutes } from './routes/chats.js';
+import { inviteRoutes } from './routes/extras.js';
 import { messageRoutes } from './routes/messages.js';
 import { mediaRoutes, uploadRoutes } from './routes/uploads.js';
 import { callRoutes } from './routes/calls.js';
@@ -53,7 +54,7 @@ export function createApp(): express.Express {
   app.get('/api/health', (_req, res) => {
     res.json({
       ok: true,
-      version: '0.1.0',
+      version: '0.2.0',
       uptime: Math.round(process.uptime()),
       connections: connectionCount(),
       storage: storage().kind,
@@ -65,7 +66,9 @@ export function createApp(): express.Express {
   app.use('/api', extrasRoutes());
   app.use('/api/users', userRoutes());
   app.use('/api/avatars', avatarRoutes());
+  app.use('/api/chats', channelRoutes());
   app.use('/api/chats', chatRoutes());
+  app.use('/api/invites', inviteRoutes());
   app.use('/api/uploads', uploadRoutes());
   app.use('/api/media', mediaRoutes());
   app.use('/api/calls', callRoutes());
@@ -136,3 +139,6 @@ export function createApp(): express.Express {
   app.use(errorHandler);
   return app;
 }
+
+
+

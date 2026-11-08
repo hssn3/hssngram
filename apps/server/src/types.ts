@@ -63,7 +63,7 @@ export type ChatMemberDto = {
 
 export type ChatDto = {
   id: string;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'channel';
   title: string;
   avatarUrl: string | null;
   ownerId: string | null;
@@ -74,6 +74,7 @@ export type ChatDto = {
   mutedUntil: string | null;
   archived: boolean;
   ttlSeconds?: number | null;
+  slowmodeSeconds?: number;
   createdAt: string;
   updatedAt: string;
   lastMessageAt: string | null;

@@ -11,6 +11,7 @@ export async function forwardMessage(
   messageId: string,
   userId: string,
   targetChatId: string,
+  hideAuthor = false,
 ): Promise<MessageDto> {
   const original = await queryOne<MessageRow>(
     `select ${MESSAGE_COLUMNS} from messages m where m.id = $1`,
@@ -58,7 +59,7 @@ export async function forwardMessage(
         original.kind,
         original.body,
         JSON.stringify({ forwardedFromMessageId: messageId }),
-        senderName,
+        hideAuthor ? null : senderName,
       ],
     );
     const id = inserted.rows[0]!.id;

@@ -40,7 +40,7 @@ export function NewChatDialog() {
   const createDirect = useApp((state) => state.createDirect);
   const createGroup = useApp((state) => state.createGroup);
 
-  const [tab, setTab] = useState<'direct' | 'group'>('direct');
+  const [tab, setTab] = useState<'direct' | 'group' | 'channel'>('direct');
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<PublicUser[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -81,6 +81,9 @@ export function NewChatDialog() {
         <button className={tab === 'group' ? 'active' : ''} onClick={() => setTab('group')}>
           گروه
         </button>
+        <button className={tab === 'channel' ? 'active' : ''} onClick={() => setTab('channel')}>
+          کانال
+        </button>
       </div>
 
       <div className="search" style={{ padding: '0 14px' }}>
@@ -93,9 +96,9 @@ export function NewChatDialog() {
         />
       </div>
 
-      {tab === 'group' ? (
+      {tab !== 'direct' ? (
         <div className="field">
-          <label>نام گروه</label>
+          <label>{tab === 'group' ? 'نام گروه' : 'نام کانال'}</label>
           <input
             className="input"
             value={title}
@@ -169,20 +172,34 @@ export function NewChatDialog() {
         ) : null}
       </div>
 
-      {tab === 'group' ? (
+      {tab !== 'direct' ? (
         <button
           className="btn btn-primary"
-          disabled={selected.length === 0 || title.trim().length === 0 || busy}
+          disabled={
+            title.trim().length === 0 ||
+            busy ||
+            (tab === 'group' && selected.length === 0)
+          }
           onClick={async () => {
             setBusy(true);
             try {
-              await createGroup(title.trim(), selected);
+              if (tab === 'channel') {
+                const result = await api<{ chat: { id: string } }>('/chats/channel', {
+                  method: 'POST',
+                  body: { title: title.trim() },
+                });
+                await useApp.getState().loadChats();
+                await useApp.getState().selectChat(result.chat.id);
+                useApp.getState().openDialog(null);
+              } else {
+                await createGroup(title.trim(), selected);
+              }
             } finally {
               setBusy(false);
             }
           }}
         >
-          ساخت گروه
+          {tab === 'channel' ? 'ساخت کانال' : 'ساخت گروه'}
         </button>
       ) : null}
     </DialogShell>
@@ -426,10 +443,6 @@ export function SettingsDialog() {
           خروج از حساب
         </button>
       </div>
-
-      <p style={{ color: 'var(--muted-2)', fontSize: 12, margin: 0 }}>
-        حسن‌گرام نسخه ۰.۱.۰ — میزبانی روی ابر آروان
-      </p>
     </DialogShell>
   );
 }
@@ -883,3 +896,4 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
     </DialogShell>
   );
 }
+

@@ -750,3 +750,107 @@ test('saved messages is a chat with yourself', async () => {
   });
   assert.equal(media.status, 200);
 });
+
+test('channels are read-only for members and support invite links', async () => {
+  const channel = await call('POST', '/api/chats/channel', {
+    token: state.adminToken,
+    body: { title: 'کانال خانواده' },
+  });
+  assert.equal(channel.status, 201);
+  assert.equal(channel.body.chat.type, 'channel');
+
+  const channelId = channel.body.chat.id as string;
+  const posted = await call('POST', `/api/chats/${channelId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'اولین پست کانال' },
+  });
+  assert.equal(posted.status, 201);
+
+  const invite = await call('POST', `/api/chats/${channelId}/invites`, {
+    token: state.adminToken,
+    body: { maxUses: 1, expiresInHours: 24 },
+  });
+  assert.equal(invite.status, 201);
+
+  const joined = await call('POST', `/api/invites/${invite.body.token}/join`, {
+    token: state.carolToken,
+  });
+  assert.equal(joined.status, 200);
+  assert.equal(joined.body.chat.id, channelId);
+
+  const deniedPost = await call('POST', `/api/chats/${channelId}/messages`, {
+    token: state.carolToken,
+    body: { body: 'من هم می‌نویسم' },
+  });
+  assert.equal(deniedPost.status, 403);
+
+  const exhausted = await call('POST', `/api/invites/${invite.body.token}/join`, {
+    token: state.bobToken,
+  });
+  assert.notEqual(exhausted.status, 200);
+});
+
+test('slow mode and member rights are enforced server-side', async () => {
+  const group = await call('POST', '/api/chats/group', {
+    token: state.adminToken,
+    body: { title: 'گروه آهسته', memberIds: [state.carolId] },
+  });
+  assert.equal(group.status, 201);
+  const groupId = group.body.chat.id as string;
+
+  const slow = await call('POST', `/api/chats/${groupId}/slowmode`, {
+    token: state.adminToken,
+    body: { seconds: 60 },
+  });
+  assert.equal(slow.status, 200);
+
+  const first = await call('POST', `/api/chats/${groupId}/messages`, {
+    token: state.carolToken,
+    body: { body: 'پیام اول' },
+  });
+  assert.equal(first.status, 201);
+
+  const second = await call('POST', `/api/chats/${groupId}/messages`, {
+    token: state.carolToken,
+    body: { body: 'پیام دوم' },
+  });
+  assert.equal(second.status, 400);
+
+  const ownerPost = await call('POST', `/api/chats/${groupId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'مدیر معاف است' },
+  });
+  assert.equal(ownerPost.status, 201);
+
+  const muted = await call('PATCH', `/api/chats/${groupId}/members/${state.carolId}`, {
+    token: state.adminToken,
+    body: { rights: { sendMessages: false } },
+  });
+  assert.equal(muted.status, 200);
+
+  await call('POST', `/api/chats/${groupId}/slowmode`, {
+    token: state.adminToken,
+    body: { seconds: 0 },
+  });
+
+  const blocked = await call('POST', `/api/chats/${groupId}/messages`, {
+    token: state.carolToken,
+    body: { body: 'باید رد شود' },
+  });
+  assert.equal(blocked.status, 403);
+});
+
+test('forwarding can hide the original author', async () => {
+  const sent = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'برای فوروارد بی‌نام' },
+  });
+  assert.equal(sent.status, 201);
+
+  const forwarded = await call('POST', `/api/messages/${sent.body.message.id}/forward`, {
+    token: state.adminToken,
+    body: { chatId: state.chatId, hideAuthor: true },
+  });
+  assert.equal(forwarded.status, 201);
+  assert.equal(forwarded.body.message.forwardFromName, null);
+});

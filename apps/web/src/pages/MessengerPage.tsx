@@ -72,7 +72,15 @@ export function MessengerPage() {
           <>
             <ChatHeader chat={activeChat} onInfo={() => setInfoOpen(true)} />
             <MessageList chat={activeChat} onReply={setReplyTo} />
-            <Composer chatId={activeChat.id} replyTo={replyTo} onClearReply={() => setReplyTo(null)} />
+                      <Composer
+            chatId={activeChat.id}
+            replyTo={replyTo}
+            onClearReply={() => setReplyTo(null)}
+            readOnly={
+              activeChat.type === 'channel' &&
+              activeChat.members.find((member) => member.user.id === user?.id)?.role === 'member'
+            }
+          />
           </>
         ) : (
           <div className="empty">

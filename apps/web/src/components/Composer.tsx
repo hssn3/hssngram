@@ -14,11 +14,12 @@ type Props = {
   chatId: string;
   replyTo: string | null;
   onClearReply: () => void;
+  readOnly?: boolean;
 };
 
 const NO_MESSAGES: Message[] = [];
 
-export function Composer({ chatId, replyTo, onClearReply }: Props) {
+export function Composer({ chatId, replyTo, onClearReply, readOnly = false }: Props) {
   const sendText = useApp((state) => state.sendText);
   const sendFiles = useApp((state) => state.sendFiles);
   const sendVoice = useApp((state) => state.sendVoice);
@@ -46,6 +47,17 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
   const typingRef = useRef<number | null>(null);
 
   const replyMessage = replyTo ? messages.find((message) => message.id === replyTo) : null;
+
+  if (readOnly) {
+    return (
+      <div className="composer read-only">
+        <div className="read-only-note">
+          <Icon name="lock" />
+          فقط مدیران این کانال می‌توانند پیام بگذارند
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     return () => {

@@ -2478,3 +2478,84 @@ button,
   height: 15px;
   color: var(--muted);
 }
+
+/* ---------- 0.2.0 visual polish (Telegram-like) ---------- */
+
+.msg {
+  animation: msg-in 0.18s ease-out both;
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-item {
+  transition: background 0.16s ease, transform 0.12s ease;
+}
+
+.chat-item:active {
+  transform: scale(0.985);
+}
+
+.btn:active,
+.icon-btn:active,
+.send:active {
+  transform: scale(0.94);
+}
+
+.bubble {
+  transition: box-shadow 0.18s ease;
+}
+
+.bubble .meta {
+  gap: 5px;
+}
+
+.chat-head {
+  min-height: 64px;
+}
+
+.chat-head .who {
+  min-width: 0;
+}
+
+.chat-head .name,
+.chat-head .status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer.read-only {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+.read-only-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--panel-2);
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sidebar-head {
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .chat-head {
+    min-height: 58px;
+  }
+}

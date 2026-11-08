@@ -19,6 +19,12 @@ import {
 } from '../../services/chats.js';
 import { getUserById, toPublicUser } from '../../services/users.js';
 import { membersOf } from '../../services/seq.js';
+import {
+  createChannel,
+  createInvite,
+  setMemberRights,
+  setSlowMode,
+} from '../../services/channel.js';
 import { emitToUsers } from '../../realtime/index.js';
 import { publishChat, publishNewChat } from '../../realtime/index.js';
 import { storage } from '../../storage/index.js';
@@ -220,6 +226,75 @@ export function profileRoute(): Router {
     const user = await getUserById(String(req.params.id));
     if (!user) throw notFound('کاربر پیدا نشد');
     res.json({ user: toPublicUser(user) });
+  });
+
+  return router;
+}
+
+export function channelRoutes(): Router {
+  const router = Router();
+  router.use(requireAuth);
+
+  router.post('/changes', (_req, res) => {
+    res.json({ ok: true });
+  });
+
+  router.post('/channel', async (req, res) => {
+    const { userId } = currentUser(req);
+    const { title } = parse(z.object({ title: z.string().min(2).max(120) }), req.body);
+    const chatId = await createChannel(userId, title);
+
+    const members = await membersOf(chatId);
+    for (const member of members) {
+      publishNewChat([member], await getChatForUser(chatId, member));
+    }
+
+    res.status(201).json({ chat: await getChatForUser(chatId, userId) });
+  });
+
+  router.post('/:id/invites', async (req, res) => {
+    const { userId } = currentUser(req);
+    const body = parse(
+      z.object({
+        maxUses: z.number().int().min(1).max(10000).nullish(),
+        expiresInHours: z.number().int().min(1).max(8760).nullish(),
+      }),
+      req.body,
+    );
+
+    const invite = await createInvite(String(req.params.id), userId, body);
+    res.status(201).json(invite);
+  });
+
+  router.post('/:id/slowmode', async (req, res) => {
+    const { userId } = currentUser(req);
+    const { seconds } = parse(z.object({ seconds: z.number().int().min(0).max(3600) }), req.body);
+    const value = await setSlowMode(String(req.params.id), userId, seconds);
+
+    emitToUsers(await membersOf(String(req.params.id)), 'chat:update', await getChatForUser(String(req.params.id), userId));
+    res.json({ slowmodeSeconds: value });
+  });
+
+  router.patch('/:id/members/:userId', async (req, res) => {
+    const { userId } = currentUser(req);
+    const body = parse(
+      z.object({
+        role: z.enum(['admin', 'member']).optional(),
+        rights: z
+          .object({
+            sendMessages: z.boolean().optional(),
+            pinMessages: z.boolean().optional(),
+            deleteMessages: z.boolean().optional(),
+            inviteUsers: z.boolean().optional(),
+            manageChat: z.boolean().optional(),
+          })
+          .optional(),
+      }),
+      req.body,
+    );
+
+    await setMemberRights(String(req.params.id), userId, String(req.params.userId), body);
+    res.json({ ok: true });
   });
 
   return router;

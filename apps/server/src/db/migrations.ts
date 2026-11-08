@@ -270,4 +270,27 @@ export const migrations: Migration[] = [
         check (kind in ('text', 'image', 'video', 'audio', 'voice', 'file', 'system', 'poll'));
     `,
   },
+  {
+    id: '0006_channels_invites_rights',
+    sql: /* sql */ `
+      alter table chats drop constraint if exists chats_type_check;
+      alter table chats add constraint chats_type_check
+        check (type in ('direct', 'group', 'channel'));
+
+      alter table chats add column if not exists slowmode_seconds integer not null default 0;
+      alter table chat_members add column if not exists rights jsonb not null default '{}'::jsonb;
+
+      create table if not exists chat_invites (
+        token text primary key,
+        chat_id uuid not null references chats(id) on delete cascade,
+        created_by uuid references users(id) on delete set null,
+        max_uses integer,
+        uses integer not null default 0,
+        expires_at timestamptz,
+        revoked boolean not null default false,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists chat_invites_chat_idx on chat_invites (chat_id);
+    `,
+  },
 ];

@@ -145,3 +145,20 @@ export function extrasRoutes(): Router {
   return router;
 }
 
+
+export function inviteRoutes(): Router {
+  const router = Router();
+  router.use(requireAuth);
+
+  router.post('/:token/join', async (req, res) => {
+    const { userId } = currentUser(req);
+    const { joinByInvite } = await import('../../services/channel.js');
+    const result = await joinByInvite(String(req.params.token), userId);
+
+    const members = await membersOf(result.chat.id);
+    emitToUsers(members, 'chat:new', result.chat);
+    res.json(result);
+  });
+
+  return router;
+}

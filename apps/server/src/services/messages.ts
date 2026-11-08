@@ -6,6 +6,7 @@ import { hydrateMessages, getMessageById, MESSAGE_COLUMNS, type MessageRow } fro
 import { nextSeq } from './seq.js';
 import { removeAttachmentIfUnused } from './message-extras.js';
 import { randomUUID } from 'node:crypto';
+import { assertCanSend } from './channel.js';
 
 const ALLOWED_KINDS = new Set<MessageDto['kind']>([
   'text',
@@ -39,6 +40,8 @@ export async function sendMessage(input: SendMessageInput): Promise<MessageDto> 
   if (body.length === 0 && attachmentIds.length === 0) throw badRequest('پیام خالی است');
   if (body.length > 8000) throw badRequest('متن پیام بیش از حد بلند است');
   if (attachmentIds.length > 10) throw badRequest('حداکثر ۱۰ فایل برای هر پیام');
+
+  await assertCanSend(input.chatId, input.senderId);
 
   const messageId = await tx(async (client) => {
     await client.query('select 1 from chat_members where chat_id = $1 and user_id = $2', [

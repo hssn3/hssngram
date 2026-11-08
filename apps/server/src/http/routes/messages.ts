@@ -116,9 +116,17 @@ export function messageRoutes(): Router {
 
   router.post('/messages/:id/forward', async (req, res) => {
     const { userId } = currentUser(req);
-    const { chatId } = parse(z.object({ chatId: z.string().uuid() }), req.body);
+    const { chatId, hideAuthor } = parse(
+      z.object({ chatId: z.string().uuid(), hideAuthor: z.boolean().optional() }),
+      req.body,
+    );
 
-    const message = await forwardMessage(String(req.params.id), userId, chatId);
+    const message = await forwardMessage(
+      String(req.params.id),
+      userId,
+      chatId,
+      hideAuthor === true,
+    );
     const memberIds = await membersOf(chatId);
     const chat = await getChatForUser(chatId, userId);
     await notifyNewMessage(memberIds, message, { ...chat, unread: 0 });

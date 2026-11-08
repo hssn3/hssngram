@@ -64,7 +64,7 @@ export type ChatMember = {
 
 export type Chat = {
   id: string;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'channel';
   title: string;
   avatarUrl: string | null;
   ownerId: string | null;
@@ -95,3 +95,4 @@ export type IceServer = {
   username?: string;
   credential?: string;
 };
+
