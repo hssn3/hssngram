@@ -1,6 +1,6 @@
 {
-  "name": "HssNGram — حسن‌گرام",
-  "short_name": "حسن‌گرام",
+  "name": "HssNGram",
+  "short_name": "HssNGram",
   "description": "پیام‌رسان خصوصی خانواده و دوستان، روی ابر آروان",
   "lang": "fa",
   "dir": "rtl",
@@ -37,3 +37,4 @@
     }
   ]
 }
+
