@@ -77,6 +77,11 @@ export function initials(name: string): string {
   return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`;
 }
 
+export function displayTitle(chat: { type: string; title: string; members: Array<{ user: { id: string } }> }): string {
+  if (chat.type === 'direct' && chat.members.length === 1) return 'پیام‌های ذخیره‌شده';
+  return chat.title;
+}
+
 export function previewOf(message: {
   kind: string;
   body: string;

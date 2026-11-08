@@ -62,6 +62,31 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
     element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
   }, [text]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem(`hssn-draft-${chatId}`);
+    if (saved) setText(saved);
+  }, [chatId]);
+
+  useEffect(() => {
+    const key = `hssn-draft-${chatId}`;
+    if (text.trim()) localStorage.setItem(key, text);
+    else localStorage.removeItem(key);
+  }, [text, chatId]);
+
+  function wrapSelection(marker: string) {
+    const element = textareaRef.current;
+    if (!element) return;
+    const start = element.selectionStart ?? text.length;
+    const end = element.selectionEnd ?? text.length;
+    const selected = text.slice(start, end) || 'متن';
+    onTextChange(`${text.slice(0, start)}${marker}${selected}${marker}${text.slice(end)}`);
+    window.requestAnimationFrame(() => {
+      element.focus();
+      element.setSelectionRange(start + marker.length, start + marker.length + selected.length);
+    });
+    setMenuOpen(false);
+  }
+
   function onTextChange(value: string) {
     setText(value);
     emitTyping(chatId, value.length > 0);
@@ -255,6 +280,18 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
 
         {menuOpen ? (
           <div className="composer-menu">
+            <button onClick={() => wrapSelection('*')}>
+              <strong>B</strong> بولد
+            </button>
+            <button onClick={() => wrapSelection('_')}>
+              <em>I</em> ایتالیک
+            </button>
+            <button onClick={() => wrapSelection('`')}>
+              <span className="rich-code">{'<>'}</span> کد
+            </button>
+            <button onClick={() => wrapSelection('||')}>
+              <Icon name="lock" /> اسپویلر
+            </button>
             <button
               onClick={() => {
                 setSilent((value) => !value);

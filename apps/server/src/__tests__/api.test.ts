@@ -729,3 +729,24 @@ test('privacy switches, blocking and data export', async () => {
   assert.equal(exported.status, 200);
   assert.ok(exported.body.chats.length >= 1);
 });
+
+test('saved messages is a chat with yourself', async () => {
+  const me = await call('GET', '/api/auth/me', { token: state.adminToken });
+  const chat = await call('POST', '/api/chats/direct', {
+    token: state.adminToken,
+    body: { userId: me.body.user.id },
+  });
+  assert.equal(chat.status, 201);
+  assert.equal(chat.body.chat.members.length, 1);
+
+  const sent = await call('POST', `/api/chats/${chat.body.chat.id}/messages`, {
+    token: state.adminToken,
+    body: { body: 'یادداشت شخصی' },
+  });
+  assert.equal(sent.status, 201);
+
+  const media = await call('GET', `/api/chats/${chat.body.chat.id}/media?kind=image`, {
+    token: state.adminToken,
+  });
+  assert.equal(media.status, 200);
+});

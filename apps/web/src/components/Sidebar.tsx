@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
-import { formatListTime, previewOf } from '../lib/format';
+import { formatListTime, previewOf, displayTitle } from '../lib/format';
 
 export function Sidebar() {
   const user = useApp((state) => state.user);
   const chats = useApp((state) => state.chats);
   const activeChatId = useApp((state) => state.activeChatId);
   const selectChat = useApp((state) => state.selectChat);
+  const createDirect = useApp((state) => state.createDirect);
   const openDialog = useApp((state) => state.openDialog);
   const typing = useApp((state) => state.typing);
   const presence = useApp((state) => state.presence);
@@ -39,6 +40,16 @@ export function Sidebar() {
 
         <button className="icon-btn" aria-label="گفتگوی جدید" onClick={() => openDialog('new-chat')}>
           <Icon name="plus" />
+        </button>
+
+        <button
+          className="icon-btn"
+          aria-label="پیام‌های ذخیره‌شده"
+          onClick={() => {
+            if (user) void createDirect(user.id);
+          }}
+        >
+          <Icon name="file" />
         </button>
 
         <button
@@ -82,11 +93,11 @@ export function Sidebar() {
               className={`chat-item ${chat.id === activeChatId ? 'active' : ''}`}
               onClick={() => void selectChat(chat.id)}
             >
-              <Avatar name={chat.title} src={chat.avatarUrl} online={online} />
+              <Avatar name={displayTitle(chat)} src={chat.avatarUrl} online={online} />
 
               <div style={{ minWidth: 0 }}>
                 <div className="title-row">
-                  <span className="title">{chat.title}</span>
+                  <span className="title">{displayTitle(chat)}</span>
                   {chat.type === 'group' ? <Icon name="users" style={{ width: 13, height: 13, opacity: 0.5 }} /> : null}
                 </div>
                 <div className={`preview ${typingIds.length ? 'typing' : ''}`}>

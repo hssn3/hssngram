@@ -200,9 +200,26 @@ export function SettingsDialog() {
   const [bio, setBio] = useState(user?.bio ?? '');
   const [theme, setTheme] = useState(document.documentElement.dataset.theme ?? 'dark');
   const [pushState, setPushState] = useState<string | null>(null);
+  const [privacy, setPrivacy] = useState<{ lastSeen: string; readReceipts: boolean } | null>(null);
+  const [blocked, setBlocked] = useState<PublicUser[]>([]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordState, setPasswordState] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api<{ privacy: { lastSeen: string; readReceipts: boolean } }>(
+          '/users/privacy',
+        );
+        setPrivacy(data.privacy);
+        const list = await api<{ users: PublicUser[] }>('/users/blocked');
+        setBlocked(list.users);
+      } catch {
+        // keep the panel hidden when the request fails
+      }
+    })();
+  }, []);
 
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -297,6 +314,66 @@ export function SettingsDialog() {
           فعال‌سازی اعلان‌ها
         </button>
         {pushState ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{pushState}</span> : null}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>حریم خصوصی</div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn"
+            onClick={async () => {
+              if (!privacy) return;
+              const next = {
+                ...privacy,
+                lastSeen: privacy.lastSeen === 'everyone' ? 'nobody' : 'everyone',
+              };
+              setPrivacy(next);
+              await api('/users/privacy', { method: 'PATCH', body: next });
+            }}
+          >
+            <Icon name="users" />
+            آخرین بازدید: {privacy?.lastSeen === 'nobody' ? 'پنهان' : 'همه'}
+          </button>
+
+          <button
+            className="btn"
+            onClick={async () => {
+              if (!privacy) return;
+              const next = { ...privacy, readReceipts: !privacy.readReceipts };
+              setPrivacy(next);
+              await api('/users/privacy', { method: 'PATCH', body: next });
+            }}
+          >
+            <Icon name="checks" />
+            تیک خوانده‌شدن: {privacy?.readReceipts ? 'روشن' : 'خاموش'}
+          </button>
+        </div>
+
+        {blocked.length > 0 ? (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>کاربران مسدود</div>
+            {blocked.map((person) => (
+              <div key={person.id} className="user-row" style={{ padding: 6 }}>
+                <Avatar name={person.displayName} src={person.avatarUrl} size="sm" />
+                <span className="info">
+                  <span className="n">{person.displayName}</span>
+                  <span className="u">{person.username}</span>
+                </span>
+                <button
+                  className="btn"
+                  style={{ padding: '4px 10px' }}
+                  onClick={async () => {
+                    await api(`/users/${person.id}/block`, { method: 'DELETE' });
+                    setBlocked((current) => current.filter((item) => item.id !== person.id));
+                  }}
+                >
+                  رفع مسدودی
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
@@ -606,6 +683,32 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
   const me = chat.members.find((member) => member.user.id === user?.id);
   const isManager = me?.role === 'owner' || me?.role === 'admin';
 
+  const [mediaKind, setMediaKind] = useState<'image' | 'video' | 'audio' | 'file'>('image');
+  const [mediaItems, setMediaItems] = useState<Array<{ id: string; name: string; kind: string }>>(
+    [],
+  );
+  const [mediaLoading, setMediaLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMediaLoading(true);
+    void (async () => {
+      try {
+        const data = await api<{ items: Array<{ id: string; name: string; kind: string }> }>(
+          `/chats/${chat.id}/media?kind=${mediaKind}`,
+        );
+        if (!cancelled) setMediaItems(data.items);
+      } catch {
+        if (!cancelled) setMediaItems([]);
+      } finally {
+        if (!cancelled) setMediaLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chat.id, mediaKind]);
+
   return (
     <DialogShell title="اطلاعات گفتگو" onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -732,6 +835,43 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
             حذف گروه
           </button>
         ) : null}
+      </div>
+
+      <div className="field">
+        <label>رسانه‌های گفتگو</label>
+        <div className="tabs" style={{ marginBottom: 8 }}>
+          {(
+            [
+              ['image', 'تصاویر'],
+              ['video', 'ویدیو'],
+              ['audio', 'صدا'],
+              ['file', 'فایل'],
+            ] as const
+          ).map(([kind, label]) => (
+            <button
+              key={kind}
+              className={mediaKind === kind ? 'active' : ''}
+              onClick={() => setMediaKind(kind)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mediaLoading ? (
+          <p style={{ color: 'var(--muted)', fontSize: 12 }}>در حال بارگذاری…</p>
+        ) : mediaItems.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 12 }}>موردی وجود ندارد.</p>
+        ) : (
+          <div className="media-grid">
+            {mediaItems.map((item) => (
+              <div key={item.id} className="media-item" title={item.name}>
+                <Icon name={mediaKind === 'image' ? 'image' : mediaKind === 'audio' ? 'mic' : 'file'} />
+                <span>{item.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {chat.lastMessage ? (

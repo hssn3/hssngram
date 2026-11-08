@@ -223,38 +223,49 @@ export async function getChatForUser(chatId: string, userId: string): Promise<Ch
 }
 
 export async function createDirectChat(userId: string, otherUserId: string): Promise<string> {
-  if (userId === otherUserId) throw badRequest('نمی‌توانید با خودتان گفتگو کنید');
+  const isSelf = userId === otherUserId;
 
   const other = await queryOne<{ id: string }>('select id from users where id = $1', [otherUserId]);
   if (!other) throw notFound('کاربر پیدا نشد');
 
-  const blocked = await queryOne<{ ok: boolean }>(
-    `select exists(
-       select 1 from user_blocks
-       where (blocker_id = $1 and blocked_id = $2) or (blocker_id = $2 and blocked_id = $1)
-     ) as ok`,
-    [userId, otherUserId],
-  );
-  if (blocked?.ok) throw forbidden('امکان شروع گفتگو با این کاربر وجود ندارد');
+  if (!isSelf) {
+    const blocked = await queryOne<{ ok: boolean }>(
+      `select exists(
+         select 1 from user_blocks
+         where (blocker_id = $1 and blocked_id = $2) or (blocker_id = $2 and blocked_id = $1)
+       ) as ok`,
+      [userId, otherUserId],
+    );
+    if (blocked?.ok) throw forbidden('امکان شروع گفتگو با این کاربر وجود ندارد');
+  }
 
   const directKey = [userId, otherUserId].sort().join(':');
 
   return tx(async (client) => {
     const inserted = await client.query<{ id: string }>(
       `insert into chats (type, direct_key, owner_id)
-       values ('direct', $1, null)
+       values ('direct', $1, $2)
        on conflict (direct_key) do update set updated_at = now()
        returning id`,
-      [directKey],
+      [directKey, userId],
     );
     const chatId = inserted.rows[0]!.id;
 
-    await client.query(
-      `insert into chat_members (chat_id, user_id, role)
-       values ($1, $2, 'member'), ($1, $3, 'member')
-       on conflict (chat_id, user_id) do nothing`,
-      [chatId, userId, otherUserId],
-    );
+    if (isSelf) {
+      await client.query(
+        `insert into chat_members (chat_id, user_id, role)
+         values ($1, $2, 'owner')
+         on conflict (chat_id, user_id) do nothing`,
+        [chatId, userId],
+      );
+    } else {
+      await client.query(
+        `insert into chat_members (chat_id, user_id, role)
+         values ($1, $2, 'member'), ($1, $3, 'member')
+         on conflict (chat_id, user_id) do nothing`,
+        [chatId, userId, otherUserId],
+      );
+    }
 
     return chatId;
   });

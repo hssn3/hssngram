@@ -72,6 +72,42 @@ async function onConnect(socket: Socket, userId: string): Promise<void> {
     broadcastPresence(userId, true);
   }
 
+  // Replay calls that are still ringing so a user who reconnects mid-ring sees them.
+  try {
+    const { rows } = await (await import('../db/pool.js')).pool.query<{
+      id: string;
+      chat_id: string;
+      initiator_id: string | null;
+      kind: 'audio' | 'video';
+      status: 'ringing';
+      created_at: Date;
+      started_at: Date | null;
+      ended_at: Date | null;
+    }>(
+      `select c.id, c.chat_id, c.initiator_id, c.kind, c.status, c.created_at, c.started_at, c.ended_at
+       from calls c
+       join call_participants cp on cp.call_id = c.id
+       where cp.user_id = $1 and cp.state = 'invited' and c.status = 'ringing'
+         and c.created_at > now() - interval '45 seconds'
+       order by c.created_at desc limit 3`,
+      [userId],
+    );
+
+    if (rows.length > 0) {
+      const { getChatForUser } = await import('../services/chats.js');
+      const { mapCall } = await import('../services/calls.js');
+      for (const row of rows) {
+        socket.emit('call:incoming', {
+          call: mapCall(row),
+          chat: await getChatForUser(row.chat_id, userId),
+          from: row.initiator_id,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[socket] call replay failed', error);
+  }
+
   socket.emit('ready', { userId, online: true });
 
   socket.on('chat:subscribe', (payload: { chatId?: string }) => {
