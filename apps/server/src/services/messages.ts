@@ -5,6 +5,7 @@ import { assertMembership } from './chats.js';
 import { hydrateMessages, getMessageById, MESSAGE_COLUMNS, type MessageRow } from './message-mapper.js';
 import { nextSeq } from './seq.js';
 import { removeAttachmentIfUnused } from './message-extras.js';
+import { randomUUID } from 'node:crypto';
 
 const ALLOWED_KINDS = new Set<MessageDto['kind']>([
   'text',
@@ -14,6 +15,7 @@ const ALLOWED_KINDS = new Set<MessageDto['kind']>([
   'voice',
   'file',
   'system',
+  'poll',
 ]);
 
 export type SendMessageInput = {
@@ -24,6 +26,8 @@ export type SendMessageInput = {
   replyToId?: string | null;
   attachmentIds?: string[];
   meta?: Record<string, unknown>;
+  silent?: boolean;
+  scheduledAt?: string | null;
 };
 
 export async function sendMessage(input: SendMessageInput): Promise<MessageDto> {
@@ -66,11 +70,29 @@ export async function sendMessage(input: SendMessageInput): Promise<MessageDto> 
       if (kind === 'text') kind = attachments.rows[0]!.kind as MessageDto['kind'];
     }
 
-    const seq = await nextSeq(client, input.chatId);
+    if (input.kind === 'poll') {
+      const options = (input.meta?.options as unknown[] | undefined) ?? [];
+      if (!Array.isArray(options) || options.length < 2 || options.length > 10) {
+        throw badRequest('نظرسنجی باید بین ۲ تا ۱۰ گزینه داشته باشد');
+      }
+    }
+
+    const member = await client.query<{ ttl_seconds: number | null }>(
+      'select ttl_seconds from chat_members where chat_id = $1 and user_id = $2',
+      [input.chatId, input.senderId],
+    );
+    const ttlSeconds = member.rows[0]?.ttl_seconds ?? null;
+
+    const scheduled = input.scheduledAt ? new Date(input.scheduledAt) : null;
+    const isFuture = Boolean(scheduled && scheduled.getTime() > Date.now() + 1500);
+    const seq = isFuture ? null : await nextSeq(client, input.chatId);
+    const groupId = attachmentIds.length > 1 ? randomUUID() : null;
+    const expiresAt = ttlSeconds && ttlSeconds > 0 ? new Date(Date.now() + ttlSeconds * 1000) : null;
 
     const inserted = await client.query<{ id: string }>(
-      `insert into messages (chat_id, seq, sender_id, kind, body, meta, reply_to)
-       values ($1, $2, $3, $4, $5, $6, $7)
+      `insert into messages
+         (chat_id, seq, sender_id, kind, body, meta, reply_to, silent, expires_at, group_id, scheduled_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        returning id`,
       [
         input.chatId,
@@ -80,6 +102,10 @@ export async function sendMessage(input: SendMessageInput): Promise<MessageDto> 
         body,
         JSON.stringify(input.meta ?? {}),
         input.replyToId ?? null,
+        input.silent === true,
+        expiresAt,
+        groupId,
+        isFuture ? scheduled : null,
       ],
     );
     const id = inserted.rows[0]!.id;
@@ -91,10 +117,12 @@ export async function sendMessage(input: SendMessageInput): Promise<MessageDto> 
       );
     }
 
-    await client.query(
-      'update chats set last_message_at = now(), updated_at = now() where id = $1',
-      [input.chatId],
-    );
+    if (!isFuture) {
+      await client.query(
+        'update chats set last_message_at = now(), updated_at = now() where id = $1',
+        [input.chatId],
+      );
+    }
 
     return id;
   });
@@ -117,6 +145,8 @@ export async function listMessages(
   const rows = await query<MessageRow>(
     `select ${MESSAGE_COLUMNS} from messages m
      where m.chat_id = $1
+       and m.seq is not null
+       and m.scheduled_at is null
        and ($2::bigint is null or m.seq < $2)
        and not exists (
          select 1 from message_hidden h where h.message_id = m.id and h.user_id = $4

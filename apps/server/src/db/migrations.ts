@@ -230,4 +230,44 @@ export const migrations: Migration[] = [
       alter table messages add column if not exists forward_from_name text;
     `,
   },
+  {
+    id: '0005_telegram_parity',
+    sql: /* sql */ `
+      -- Scheduled messages keep a null seq until they are published.
+      alter table messages alter column seq drop not null;
+      alter table messages add column if not exists scheduled_at timestamptz;
+      alter table messages add column if not exists expires_at timestamptz;
+      alter table messages add column if not exists silent boolean not null default false;
+      alter table messages add column if not exists group_id text;
+
+      create index if not exists messages_scheduled_idx
+        on messages (scheduled_at) where scheduled_at is not null;
+      create index if not exists messages_expiry_idx
+        on messages (expires_at) where expires_at is not null;
+      create index if not exists messages_group_idx
+        on messages (group_id) where group_id is not null;
+
+      -- Auto-delete timer (seconds) per member, Telegram-style chat TTL
+      alter table chat_members add column if not exists ttl_seconds integer;
+
+      create table if not exists poll_votes (
+        message_id uuid not null references messages(id) on delete cascade,
+        user_id uuid not null references users(id) on delete cascade,
+        option_index integer not null,
+        created_at timestamptz not null default now(),
+        primary key (message_id, user_id)
+      );
+
+      create table if not exists user_blocks (
+        blocker_id uuid not null references users(id) on delete cascade,
+        blocked_id uuid not null references users(id) on delete cascade,
+        created_at timestamptz not null default now(),
+        primary key (blocker_id, blocked_id)
+      );
+
+      alter table messages drop constraint if exists messages_kind_check;
+      alter table messages add constraint messages_kind_check
+        check (kind in ('text', 'image', 'video', 'audio', 'voice', 'file', 'system', 'poll'));
+    `,
+  },
 ];

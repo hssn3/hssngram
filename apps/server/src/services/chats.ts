@@ -228,6 +228,15 @@ export async function createDirectChat(userId: string, otherUserId: string): Pro
   const other = await queryOne<{ id: string }>('select id from users where id = $1', [otherUserId]);
   if (!other) throw notFound('کاربر پیدا نشد');
 
+  const blocked = await queryOne<{ ok: boolean }>(
+    `select exists(
+       select 1 from user_blocks
+       where (blocker_id = $1 and blocked_id = $2) or (blocker_id = $2 and blocked_id = $1)
+     ) as ok`,
+    [userId, otherUserId],
+  );
+  if (blocked?.ok) throw forbidden('امکان شروع گفتگو با این کاربر وجود ندارد');
+
   const directKey = [userId, otherUserId].sort().join(':');
 
   return tx(async (client) => {

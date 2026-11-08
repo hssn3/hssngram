@@ -15,6 +15,7 @@ import { getChatForUser } from '../../services/chats.js';
 import { membersOf } from '../../services/seq.js';
 import { notifyNewMessage } from '../../services/notify.js';
 import { emitToUsers } from '../../realtime/index.js';
+import { withPollVotes } from '../../services/poll-helper.js';
 import {
   archiveChat,
   forwardMessage,
@@ -25,12 +26,14 @@ import {
 } from '../../services/message-extras.js';
 
 const sendSchema = z.object({
-  kind: z.enum(['text', 'image', 'video', 'audio', 'voice', 'file']).optional(),
+  kind: z.enum(['text', 'image', 'video', 'audio', 'voice', 'file', 'poll']).optional(),
   body: z.string().max(8000).optional(),
   replyToId: z.string().uuid().nullish(),
   attachmentIds: z.array(z.string().uuid()).max(10).optional(),
   meta: z.record(z.unknown()).optional(),
   clientId: z.string().max(64).optional(),
+  silent: z.boolean().optional(),
+  scheduledAt: z.string().datetime().nullish(),
 });
 
 const editSchema = z.object({ body: z.string().min(1).max(8000) });
@@ -49,7 +52,7 @@ export function messageRoutes(): Router {
       beforeSeq: before || undefined,
       limit,
     });
-    res.json({ messages });
+    res.json({ messages: await withPollVotes(messages, userId) });
   });
 
   router.post(
@@ -68,7 +71,15 @@ export function messageRoutes(): Router {
         replyToId: body.replyToId ?? null,
         attachmentIds: body.attachmentIds,
         meta: { ...body.meta, clientId: body.clientId },
+        silent: body.silent,
+        scheduledAt: body.scheduledAt ?? null,
       });
+
+      if (message.scheduledAt) {
+        emitToUsers([userId], 'message:scheduled', message);
+        res.status(202).json({ message });
+        return;
+      }
 
       const memberIds = await membersOf(chatId);
       const chat = await getChatForUser(chatId, userId);

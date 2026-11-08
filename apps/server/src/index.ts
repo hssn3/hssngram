@@ -5,6 +5,7 @@ import { initRealtime } from './realtime/index.js';
 import { runMigrations } from './db/migrate.js';
 import { closePool } from './db/pool.js';
 import { env } from './env.js';
+import { publishDueMessages, purgeExpiredMessages } from './services/feature-extras.js';
 
 const app = createApp();
 const server = createServer(app);
@@ -36,6 +37,17 @@ if (env.MIGRATE_ON_START) {
 server.listen(env.PORT, () => {
   console.log(`[hssngram] listening on http://0.0.0.0:${env.PORT} (${env.NODE_ENV})`);
 });
+
+// Scheduled messages and TTL cleanup. Both are idempotent, so running on every
+// instance is safe: the publish path locks each row before assigning a seq.
+void publishDueMessages().catch((error) => console.error('[scheduler] publish failed', error));
+setInterval(() => {
+  void publishDueMessages().catch((error) => console.error('[scheduler] publish failed', error));
+}, 15_000).unref();
+
+setInterval(() => {
+  void purgeExpiredMessages().catch((error) => console.error('[scheduler] purge failed', error));
+}, 60_000).unref();
 
 let shuttingDown = false;
 

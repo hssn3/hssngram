@@ -39,6 +39,17 @@ type AppState = {
   closeChat: () => void;
   loadOlder: (chatId: string) => Promise<void>;
   sendText: (chatId: string, body: string, replyToId?: string | null) => Promise<void>;
+  sendPayload: (
+    chatId: string,
+    payload: {
+      body?: string;
+      kind?: 'text' | 'poll' | 'image' | 'video' | 'file' | 'audio';
+      meta?: Record<string, unknown>;
+      silent?: boolean;
+      scheduledAt?: string | null;
+    },
+  ) => Promise<void>;
+  votePoll: (messageId: string, optionIndex: number) => Promise<void>;
   sendFiles: (chatId: string, files: File[], caption?: string) => Promise<void>;
   sendVoice: (chatId: string, blob: Blob, duration: number) => Promise<void>;
   editMessage: (messageId: string, body: string) => Promise<void>;
@@ -233,6 +244,59 @@ export const useApp = create<AppState>((set, get) => ({
       });
     } catch {
       set({ loadingMessages: { ...get().loadingMessages, [chatId]: false } });
+    }
+  },
+
+  sendPayload: async (chatId, payload) => {
+    try {
+      const result = await api<{ message: Message }>(`/chats/${chatId}/messages`, {
+        method: 'POST',
+        body: {
+          body: payload.body,
+          kind: payload.kind,
+          meta: payload.meta,
+          silent: payload.silent,
+          scheduledAt: payload.scheduledAt ?? null,
+          clientId: `p-${Date.now()}`,
+        },
+      });
+      const current = get().messages[chatId] ?? [];
+      set({ messages: { ...get().messages, [chatId]: upsert(current, result.message) } });
+      get().notify(result.message.scheduledAt ? 'پیام زمان‌بندی شد' : 'ارسال شد');
+    } catch (error) {
+      get().notify((error as Error).message, 'error');
+    }
+  },
+
+  votePoll: async (messageId, optionIndex) => {
+    try {
+      const result = await api<{ counts: number[]; myVotes: number[] }>(
+        `/messages/${messageId}/vote`,
+        { method: 'POST', body: { optionIndex } },
+      );
+      const state = get();
+      const next: Record<string, Message[]> = {};
+      for (const [chatId, list] of Object.entries(state.messages)) {
+        next[chatId] = list.map((message) =>
+          message.id === messageId && message.poll
+            ? {
+                ...message,
+                poll: {
+                  ...message.poll,
+                  options: message.poll.options.map((option, index) => ({
+                    ...option,
+                    votes: result.counts[index] ?? 0,
+                  })),
+                  totalVotes: result.counts.reduce((sum, value) => sum + value, 0),
+                  myVotes: result.myVotes,
+                },
+              }
+            : message,
+        );
+      }
+      set({ messages: next });
+    } catch (error) {
+      get().notify((error as Error).message, 'error');
     }
   },
 

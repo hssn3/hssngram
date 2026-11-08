@@ -12,6 +12,9 @@ export type MessageRow = {
   meta: Record<string, unknown> | null;
   reply_to: string | null;
   forward_from_name: string | null;
+  group_id: string | null;
+  silent: boolean;
+  scheduled_at: Date | null;
   edited_at: Date | null;
   deleted_at: Date | null;
   created_at: Date;
@@ -39,7 +42,8 @@ export type ReactionRow = {
 
 export const MESSAGE_COLUMNS = `
   m.id, m.chat_id, m.seq, m.sender_id, m.kind, m.body, m.meta, m.reply_to,
-  m.forward_from_name, m.edited_at, m.deleted_at, m.created_at
+  m.forward_from_name, m.group_id, m.silent, m.scheduled_at,
+  m.edited_at, m.deleted_at, m.created_at
 `;
 
 export function mapAttachment(row: AttachmentRow): AttachmentDto {
@@ -74,6 +78,31 @@ export function mapMessage(
     userIds,
   }));
 
+  const rawMeta = (row.meta ?? {}) as {
+    options?: string[];
+    counts?: number[];
+    question?: string;
+    multiple?: boolean;
+    anonymous?: boolean;
+    closed?: boolean;
+  };
+
+  const poll =
+    row.kind === 'poll' && Array.isArray(rawMeta.options)
+      ? {
+          question: rawMeta.question ?? '',
+          options: rawMeta.options.map((text, index) => ({
+            text,
+            votes: Number(rawMeta.counts?.[index] ?? 0),
+          })),
+          totalVotes: (rawMeta.counts ?? []).reduce((sum, value) => sum + Number(value), 0),
+          multiple: rawMeta.multiple === true,
+          anonymous: rawMeta.anonymous === true,
+          closed: rawMeta.closed === true,
+          myVotes: [] as number[],
+        }
+      : null;
+
   return {
     id: row.id,
     chatId: row.chat_id,
@@ -93,6 +122,10 @@ export function mapMessage(
     deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
     createdAt: row.created_at.toISOString(),
     forwardFromName: row.forward_from_name ?? null,
+    groupId: row.group_id ?? null,
+    silent: row.silent ?? false,
+    scheduledAt: row.scheduled_at ? row.scheduled_at.toISOString() : null,
+    poll,
   };
 }
 

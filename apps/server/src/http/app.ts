@@ -13,6 +13,7 @@ import { callRoutes } from './routes/calls.js';
 import { pushRoutes } from './routes/push.js';
 import { adminRoutes } from './routes/admin.js';
 import { adminSupportRoutes, supportRoutes } from './routes/support.js';
+import { extrasRoutes } from './routes/extras.js';
 import { connectionCount } from '../services/presence.js';
 import { pushEnabled } from '../services/push.js';
 import { storage } from '../storage/index.js';
@@ -61,6 +62,7 @@ export function createApp(): express.Express {
   });
 
   app.use('/api/auth', authRoutes());
+  app.use('/api', extrasRoutes());
   app.use('/api/users', userRoutes());
   app.use('/api/avatars', avatarRoutes());
   app.use('/api/chats', chatRoutes());

@@ -579,3 +579,153 @@ test('in-chat search returns only that chat messages', async () => {
   assert.ok(result.body.messages.length >= 1);
   assert.ok(result.body.messages.every((message: Json) => message.chatId === state.chatId));
 });
+
+test('albums, silent flags and polls work end to end', async () => {
+  const first = Buffer.from('album-a', 'utf8');
+  const second = Buffer.from('album-b', 'utf8');
+  const ids: string[] = [];
+
+  for (const [name, payload] of [
+    ['a.txt', first],
+    ['b.txt', second],
+  ] as const) {
+    const init = await call('POST', '/api/uploads/init', {
+      token: state.adminToken,
+      body: { name, mime: 'text/plain', size: payload.length },
+    });
+    await fetch(`${base}${init.body.uploadUrl}`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/octet-stream',
+        authorization: `Bearer ${state.adminToken}`,
+      },
+      body: payload,
+    });
+    await call('POST', `/api/uploads/${init.body.id}/complete`, { token: state.adminToken });
+    ids.push(init.body.id);
+  }
+
+  const album = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'آلبوم', attachmentIds: ids, silent: true },
+  });
+  assert.equal(album.status, 201);
+  assert.ok(album.body.message.groupId, 'two attachments must share a group id');
+  assert.equal(album.body.message.silent, true);
+  assert.equal(album.body.message.attachments.length, 2);
+
+  const poll = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: {
+      kind: 'poll',
+      body: 'ناهار چی بخوریم؟',
+      meta: { options: ['قرمه', 'کوکو'], multiple: false, anonymous: false },
+    },
+  });
+  assert.equal(poll.status, 201);
+  assert.equal(poll.body.message.poll.options.length, 2);
+
+  const vote = await call('POST', `/api/messages/${poll.body.message.id}/vote`, {
+    token: state.carolToken,
+    body: { optionIndex: 1 },
+  });
+  assert.equal(vote.status, 200);
+  assert.deepEqual(vote.body.counts, [0, 1]);
+  assert.deepEqual(vote.body.myVotes, [1]);
+
+  const toggle = await call('POST', `/api/messages/${poll.body.message.id}/vote`, {
+    token: state.carolToken,
+    body: { optionIndex: 1 },
+  });
+  assert.deepEqual(toggle.body.counts, [0, 0]);
+
+  const media = await call('GET', `/api/chats/${state.chatId}/media?kind=file`, {
+    token: state.adminToken,
+  });
+  assert.equal(media.status, 200);
+  assert.ok(media.body.items.length >= 2);
+});
+
+test('scheduled messages stay hidden until published', async () => {
+  const sendAt = new Date(Date.now() + 60_000).toISOString();
+  const scheduled = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'پیام آینده', scheduledAt: sendAt },
+  });
+  assert.equal(scheduled.status, 202);
+  assert.ok(scheduled.body.message.scheduledAt);
+
+  const visible = await call('GET', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+  });
+  assert.equal(
+    visible.body.messages.some((message: Json) => message.id === scheduled.body.message.id),
+    false,
+  );
+
+  const list = await call('GET', `/api/chats/${state.chatId}/scheduled`, {
+    token: state.adminToken,
+  });
+  assert.equal(list.body.messages.length, 1);
+
+  const cancel = await call('DELETE', `/api/messages/${scheduled.body.message.id}/scheduled`, {
+    token: state.adminToken,
+  });
+  assert.equal(cancel.status, 200);
+});
+
+test('chat TTL marks new messages for auto deletion', async () => {
+  const ttl = await call('POST', `/api/chats/${state.chatId}/ttl`, {
+    token: state.adminToken,
+    body: { seconds: 3600 },
+  });
+  assert.equal(ttl.status, 200);
+
+  const sent = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'این پیام خودتخریب است' },
+  });
+  assert.equal(sent.status, 201);
+
+  const readBack = await call('GET', `/api/chats/${state.chatId}/ttl`, {
+    token: state.adminToken,
+  });
+  assert.equal(readBack.body.ttlSeconds, 3600);
+
+  await call('POST', `/api/chats/${state.chatId}/ttl`, {
+    token: state.adminToken,
+    body: { seconds: 0 },
+  });
+});
+
+test('privacy switches, blocking and data export', async () => {
+  const privacy = await call('PATCH', '/api/users/privacy', {
+    token: state.carolToken,
+    body: { lastSeen: 'nobody', readReceipts: false },
+  });
+  assert.equal(privacy.status, 200);
+  assert.equal(privacy.body.privacy.lastSeen, 'nobody');
+
+  const blocked = await call('POST', `/api/users/${state.newUserId}/block`, {
+    token: state.carolToken,
+  });
+  assert.equal(blocked.status, 200);
+
+  const list = await call('GET', '/api/users/blocked', { token: state.carolToken });
+  assert.equal(list.body.users.length, 1);
+
+  const denied = await call('POST', '/api/chats/direct', {
+    token: state.carolToken,
+    body: { userId: state.newUserId },
+  });
+  assert.equal(denied.status, 403);
+
+  const unblocked = await call('DELETE', `/api/users/${state.newUserId}/block`, {
+    token: state.carolToken,
+  });
+  assert.equal(unblocked.status, 200);
+
+  const exported = await call('GET', '/api/export', { token: state.adminToken });
+  assert.equal(exported.status, 200);
+  assert.ok(exported.body.chats.length >= 1);
+});

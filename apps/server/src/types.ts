@@ -31,7 +31,7 @@ export type MessageDto = {
   chatId: string;
   seq: number;
   senderId: string | null;
-  kind: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'system';
+  kind: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'system' | 'poll';
   body: string;
   meta: Record<string, unknown>;
   replyTo: { id: string; senderId: string | null; kind: string; body: string } | null;
@@ -41,6 +41,18 @@ export type MessageDto = {
   deletedAt: string | null;
   createdAt: string;
   forwardFromName?: string | null;
+  groupId?: string | null;
+  silent?: boolean;
+  scheduledAt?: string | null;
+  poll?: {
+    question: string;
+    options: Array<{ text: string; votes: number }>;
+    totalVotes: number;
+    multiple: boolean;
+    anonymous: boolean;
+    closed: boolean;
+    myVotes: number[];
+  } | null;
 };
 
 export type ChatMemberDto = {
@@ -61,6 +73,7 @@ export type ChatDto = {
   unread: number;
   mutedUntil: string | null;
   archived: boolean;
+  ttlSeconds?: number | null;
   createdAt: string;
   updatedAt: string;
   lastMessageAt: string | null;

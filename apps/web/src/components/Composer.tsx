@@ -22,6 +22,7 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
   const sendText = useApp((state) => state.sendText);
   const sendFiles = useApp((state) => state.sendFiles);
   const sendVoice = useApp((state) => state.sendVoice);
+  const sendPayload = useApp((state) => state.sendPayload);
   const emitTyping = useApp((state) => state.emitTyping);
   const messages = useApp((state) => state.messages[chatId]) ?? NO_MESSAGES;
   const notify = useApp((state) => state.notify);
@@ -30,6 +31,11 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [silent, setSilent] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState('');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +75,12 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
     setText('');
     onClearReply();
     emitTyping(chatId, false);
+
+    if (silent) {
+      await sendPayload(chatId, { body: value, silent: true });
+      return;
+    }
+
     await sendText(chatId, value, replyTo);
   }
 
@@ -137,6 +149,64 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
 
   return (
     <div className="composer" style={{ position: 'relative' }}>
+      {pollOpen ? (
+        <div className="overlay" onClick={() => setPollOpen(false)} role="presentation">
+          <div className="dialog" onClick={(event) => event.stopPropagation()}>
+            <div className="dialog-head">
+              <h3>نظرسنجی جدید</h3>
+              <button className="icon-btn" onClick={() => setPollOpen(false)} aria-label="بستن">
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="dialog-body">
+              <div className="field">
+                <label>سؤال</label>
+                <input
+                  className="input"
+                  value={pollQuestion}
+                  onChange={(event) => setPollQuestion(event.target.value)}
+                  placeholder="مثلاً ناهار چی بخوریم؟"
+                />
+              </div>
+              <div className="field">
+                <label>گزینه‌ها (هر خط یک گزینه)</label>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={pollOptions}
+                  onChange={(event) => setPollOptions(event.target.value)}
+                  placeholder={'قرمه سبزی\nکوکو سبزی\nپیتزا'}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                disabled={
+                  pollQuestion.trim().length < 2 ||
+                  pollOptions.split('\n').filter((line) => line.trim()).length < 2
+                }
+                onClick={async () => {
+                  const options = pollOptions
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean)
+                    .slice(0, 10);
+                  await sendPayload(chatId, {
+                    kind: 'poll',
+                    body: pollQuestion.trim(),
+                    meta: { question: pollQuestion.trim(), options, multiple: false, anonymous: false },
+                  });
+                  setPollOpen(false);
+                  setPollQuestion('');
+                  setPollOptions('');
+                }}
+              >
+                ساخت نظرسنجی
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {replyMessage ? (
         <div className="reply-bar">
           <span className="bar" />
@@ -174,6 +244,64 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
         >
           <Icon name="attach" />
         </button>
+
+        <button
+          className={`icon-btn ${menuOpen ? 'active' : ''}`}
+          aria-label="گزینه‌های بیشتر"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <Icon name="more" />
+        </button>
+
+        {menuOpen ? (
+          <div className="composer-menu">
+            <button
+              onClick={() => {
+                setSilent((value) => !value);
+                setMenuOpen(false);
+              }}
+            >
+              <Icon name="lock" /> {silent ? 'ارسال با صدا' : 'ارسال بی‌صدا'}
+            </button>
+            <button
+              onClick={() => {
+                setPollOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              <Icon name="users" /> نظرسنجی
+            </button>
+            <button
+              onClick={() => {
+                const draft = text.trim();
+                if (!draft) return;
+                setText('');
+                setMenuOpen(false);
+                void sendPayload(chatId, {
+                  body: draft,
+                  silent,
+                  scheduledAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+                });
+              }}
+            >
+              <Icon name="settings" /> ارسال ۱۰ دقیقه بعد
+            </button>
+            <button
+              onClick={() => {
+                const draft = text.trim();
+                if (!draft) return;
+                setText('');
+                setMenuOpen(false);
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(9, 0, 0, 0);
+                void sendPayload(chatId, { body: draft, silent, scheduledAt: tomorrow.toISOString() });
+              }}
+            >
+              <Icon name="send" /> ارسال فردا ۹ صبح
+            </button>
+          </div>
+        ) : null}
 
         <button
           className={`icon-btn ${emojiOpen ? 'active' : ''}`}
@@ -248,4 +376,5 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
     </div>
   );
 }
+
 

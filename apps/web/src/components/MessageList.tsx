@@ -4,6 +4,7 @@ import { Avatar } from './Avatar';
 import { Icon } from './Icon';
 import { ForwardDialog } from './ForwardDialog';
 import { formatBytes, formatDayLabel, formatDuration, formatTime } from '../lib/format';
+import { renderRichText } from '../lib/rich-text';
 import type { Attachment, Chat, Message } from '../types';
 
 type Props = {
@@ -357,21 +358,19 @@ function MessageContent({
   message: Message;
   onOpenMedia: (attachment: Attachment) => void;
 }) {
-  const linkify = (text: string) =>
-    text.split(/(https?:\/\/[^\s]+)/g).map((part, index) =>
-      /^https?:\/\//.test(part) ? (
-        <a key={index} href={part} target="_blank" rel="noreferrer">
-          {part}
-        </a>
-      ) : (
-        <span key={index}>{part}</span>
-      ),
-    );
 
   return (
     <>
+      {message.poll ? <PollCard message={message} /> : null}
+
       {message.attachments.length > 0 ? (
-        <div className="attachments">
+        <div
+          className={
+            message.attachments.length > 1 && message.attachments.every((item) => item.kind === 'image')
+              ? 'attachments album'
+              : 'attachments'
+          }
+        >
           {message.attachments.map((attachment) => {
             if (attachment.kind === 'image') {
               return (
@@ -440,8 +439,47 @@ function MessageContent({
         </div>
       ) : null}
 
-      {message.body ? <div className="text">{linkify(message.body)}</div> : null}
+      {message.body ? <div className="text">{renderRichText(message.body)}</div> : null}
     </>
+  );
+}
+
+function PollCard({ message }: { message: Message }) {
+  const votePoll = useApp((state) => state.votePoll);
+  const poll = message.poll;
+  if (!poll) return null;
+
+  const total = Math.max(poll.totalVotes, 1);
+
+  return (
+    <div className="poll">
+      <div className="poll-question">{poll.question}</div>
+      <div className="poll-meta">
+        {poll.anonymous ? 'ناشناس' : 'عمومی'} • {poll.totalVotes} رأی
+        {poll.multiple ? ' • چندگزینه‌ای' : ''}
+      </div>
+      <div className="poll-options">
+        {poll.options.map((option, index) => {
+          const mine = poll.myVotes.includes(index);
+          const percent = Math.round((option.votes / total) * 100);
+          return (
+            <button
+              key={index}
+              className={`poll-option ${mine ? 'mine' : ''}`}
+              disabled={poll.closed}
+              onClick={() => void votePoll(message.id, index)}
+            >
+              <span className="poll-bar" style={{ width: `${percent}%` }} />
+              <span className="poll-label">
+                <span className="poll-check">{mine ? '●' : '○'}</span>
+                {option.text}
+              </span>
+              <span className="poll-count">{percent}%</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -532,3 +570,4 @@ function MessageActionSheet({
     </div>
   );
 }
+
