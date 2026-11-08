@@ -16,3 +16,11 @@ Thumbs.db
 *.tsbuildinfo
 apps/server/data/
 apps/server/test-data/
+
+.pgdata-pglite/
+.server.out
+.server.err
+.dblog.out
+.dblog.err
+install.log
+*.log
