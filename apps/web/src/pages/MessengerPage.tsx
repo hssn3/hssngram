@@ -9,7 +9,7 @@ import { CallOverlay } from '../components/CallOverlay';
 import { AdminDialog, ChatInfoDialog, NewChatDialog, SettingsDialog } from '../components/Dialogs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
-import { formatLastSeen, formatDuration } from '../lib/format';
+import { formatLastSeen, formatDuration, displayTitle } from '../lib/format';
 
 const NO_USER_IDS: string[] = [];
 
@@ -131,14 +131,14 @@ function ChatHeader({
       </button>
 
       <Avatar
-        name={chat.title}
+        name={displayTitle(chat)}
         src={chat.avatarUrl}
         size="sm"
         online={online}
       />
 
       <div className="who">
-        <div className="name">{chat.title}</div>
+        <div className="name">{displayTitle(chat)}</div>
         <div className={`status ${typingNames.length ? 'typing' : online ? 'online' : ''}`}>
           {typingNames.length > 0
             ? `${typingNames.slice(0, 2).join('، ')} در حال نوشتن…`
