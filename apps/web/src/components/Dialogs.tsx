@@ -914,8 +914,9 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
         ) : null}
       </div>
 
-      <div className="field">
-        <label>رسانه‌های گفتگو</label>
+      <ChatExtras chat={chat} notify={notify} onClose={onClose} />
+
+      <div className="field">        <label>رسانه‌های گفتگو</label>
         <div className="tabs" style={{ marginBottom: 8 }}>
           {(
             [
@@ -958,6 +959,169 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
         </p>
       ) : null}
     </DialogShell>
+  );
+}
+
+
+
+export function ChatExtras({
+  chat,
+  notify,
+  onClose,
+}: {
+  chat: Chat;
+  notify: (text: string, tone?: 'ok' | 'error') => void;
+  onClose: () => void;
+}) {
+  const refresh = useApp((state) => state.loadChats);
+  const user = useApp((state) => state.user);
+  const [ttl, setTtl] = useState(0);
+  const [profileId, setProfileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api<{ ttlSeconds: number | null }>(`/chats/${chat.id}/ttl`);
+        setTtl(data.ttlSeconds ?? 0);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [chat.id]);
+
+  const other = chat.members.find((member) => member.user.id !== user?.id)?.user;
+
+  return (
+    <>
+      <div className="field">
+        <label>خودتخریب پیام‌ها</label>
+        <select
+          className="input"
+          value={ttl}
+          onChange={async (event) => {
+            const seconds = Number(event.target.value) || 0;
+            await api(`/chats/${chat.id}/ttl`, { method: 'POST', body: { seconds } });
+            setTtl(seconds);
+            notify(seconds ? 'پیام‌های جدید خودتخریب می‌شوند' : 'خودتخریب خاموش شد');
+          }}
+        >
+          <option value={0}>خاموش</option>
+          <option value={3600}>۱ ساعت</option>
+          <option value={86400}>۱ روز</option>
+          <option value={604800}>۱ هفته</option>
+        </select>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          className="btn"
+          onClick={async () => {
+            await api(`/chats/${chat.id}/mute`, {
+              method: 'POST',
+              body: { minutes: chat.mutedUntil ? null : 480 },
+            });
+            notify(chat.mutedUntil ? 'صدا روشن شد' : '۸ ساعت بی‌صدا شد');
+            await refresh();
+            onClose();
+          }}
+        >
+          <Icon name="lock" /> {chat.mutedUntil ? 'روشن کردن صدا' : 'بی‌صدا (۸ ساعت)'}
+        </button>
+
+        <button
+          className="btn"
+          onClick={async () => {
+            await api(`/chats/${chat.id}/archive`, {
+              method: 'POST',
+              body: { archived: !chat.archived },
+            });
+            notify(chat.archived ? 'از آرشیو خارج شد' : 'به آرشیو رفت');
+            await refresh();
+            onClose();
+          }}
+        >
+          <Icon name="file" /> {chat.archived ? 'خروج از آرشیو' : 'آرشیو کردن'}
+        </button>
+
+        {chat.type === 'direct' && other ? (
+          <button className="btn" onClick={() => setProfileId(other.id)}>
+            <Icon name="users" /> پروفایل {other.displayName}
+          </button>
+        ) : null}
+      </div>
+
+      {profileId ? <ProfileDialog userId={profileId} onClose={() => setProfileId(null)} /> : null}
+    </>
+  );
+}
+
+export function ProfileDialog({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [person, setPerson] = useState<PublicUser | null>(null);
+  const notify = useApp((state) => state.notify);
+  const createDirect = useApp((state) => state.createDirect);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api<{ user: PublicUser }>(`/users/${userId}`);
+        setPerson(data.user);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [userId]);
+
+  return (
+    <div className="overlay" onClick={onClose} role="presentation">
+      <div className="dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="dialog-head">
+          <h3>پروفایل</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="dialog-body">
+          {!person ? (
+            <p style={{ color: 'var(--muted)' }}>در حال بارگذاری…</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <Avatar name={person.displayName} src={person.avatarUrl} size="lg" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 17 }}>{person.displayName}</div>
+                  <div style={{ color: 'var(--muted)', direction: 'ltr' }}>{person.username}</div>
+                  {person.bio ? (
+                    <div style={{ fontSize: 13, color: 'var(--muted)' }}>{person.bio}</div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    await createDirect(person.id);
+                    onClose();
+                  }}
+                >
+                  <Icon name="send" /> ارسال پیام
+                </button>
+                <button
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    await api(`/users/${person.id}/block`, { method: 'POST' });
+                    notify('کاربر مسدود شد');
+                    onClose();
+                  }}
+                >
+                  <Icon name="lock" /> مسدود کردن
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
