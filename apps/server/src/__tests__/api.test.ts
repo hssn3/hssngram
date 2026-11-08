@@ -895,3 +895,33 @@ test('archive listing, clear history and filtered search', async () => {
   });
   assert.ok(stillVisible.body.messages.length >= 5);
 });
+
+test('invite links can be listed and revoked', async () => {
+  const channel = await call('POST', '/api/chats/channel', {
+    token: state.adminToken,
+    body: { title: 'کانال لینک‌دار' },
+  });
+  const channelId = channel.body.chat.id as string;
+
+  const invite = await call('POST', `/api/chats/${channelId}/invites`, {
+    token: state.adminToken,
+    body: { maxUses: 5, expiresInHours: 24 },
+  });
+  assert.equal(invite.status, 201);
+
+  const list = await call('GET', `/api/chats/${channelId}/invites`, {
+    token: state.adminToken,
+  });
+  assert.equal(list.status, 200);
+  assert.equal(list.body.invites.length, 1);
+
+  const revoke = await call('DELETE', `/api/chats/${channelId}/invites/${invite.body.token}`, {
+    token: state.adminToken,
+  });
+  assert.equal(revoke.status, 200);
+
+  const join = await call('POST', `/api/invites/${invite.body.token}/join`, {
+    token: state.carolToken,
+  });
+  assert.notEqual(join.status, 200);
+});

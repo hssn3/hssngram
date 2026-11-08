@@ -2559,3 +2559,30 @@ button,
     min-height: 58px;
   }
 }
+
+/* ---------- display preferences ---------- */
+
+html[data-font='small'] .bubble .text {
+  font-size: 13.5px;
+}
+
+html[data-font='large'] .bubble .text {
+  font-size: 16px;
+}
+
+html[data-wall='dots'] .messages {
+  background-image: radial-gradient(rgba(148, 174, 214, 0.14) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+html[data-wall='grid'] .messages {
+  background-image:
+    linear-gradient(rgba(148, 174, 214, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 174, 214, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+html[data-wall='glow'] .messages {
+  background-image: radial-gradient(600px 300px at 70% 0%, rgba(109, 94, 252, 0.16), transparent 70%);
+  background-repeat: no-repeat;
+}

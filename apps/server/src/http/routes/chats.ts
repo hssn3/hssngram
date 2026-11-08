@@ -24,6 +24,8 @@ import {
   createInvite,
   setMemberRights,
   setSlowMode,
+  listInvites,
+  revokeInvite,
 } from '../../services/channel.js';
 import { clearHistory } from '../../services/message-extras.js';
 import { emitToUsers } from '../../realtime/index.js';
@@ -273,6 +275,17 @@ export function channelRoutes(): Router {
     res.status(201).json(invite);
   });
 
+  router.get('/:id/invites', async (req, res) => {
+    const { userId } = currentUser(req);
+    res.json({ invites: await listInvites(String(req.params.id), userId) });
+  });
+
+  router.delete('/:id/invites/:token', async (req, res) => {
+    const { userId } = currentUser(req);
+    await revokeInvite(String(req.params.id), userId, String(req.params.token));
+    res.json({ ok: true });
+  });
+
   router.post('/:id/slowmode', async (req, res) => {
     const { userId } = currentUser(req);
     const { seconds } = parse(z.object({ seconds: z.number().int().min(0).max(3600) }), req.body);
@@ -306,5 +319,6 @@ export function channelRoutes(): Router {
 
   return router;
 }
+
 
 

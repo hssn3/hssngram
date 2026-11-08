@@ -141,6 +141,43 @@ export async function createInvite(
   return { token, expiresAt: expiresAt?.toISOString() ?? null, maxUses };
 }
 
+export async function listInvites(chatId: string, actorId: string) {
+  const membership = await assertMembership(chatId, actorId);
+  if (membership.role === 'member') throw forbidden('فقط مدیران می‌توانند لینک‌ها را ببینند');
+
+  const rows = await query<{
+    token: string;
+    uses: number;
+    max_uses: number | null;
+    expires_at: Date | null;
+    revoked: boolean;
+    created_at: Date;
+  }>(
+    `select token, uses, max_uses, expires_at, revoked, created_at
+     from chat_invites where chat_id = $1 order by created_at desc limit 50`,
+    [chatId],
+  );
+
+  return rows.map((row) => ({
+    token: row.token,
+    uses: row.uses,
+    maxUses: row.max_uses,
+    expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
+    revoked: row.revoked,
+    createdAt: row.created_at.toISOString(),
+  }));
+}
+
+export async function revokeInvite(chatId: string, actorId: string, token: string): Promise<void> {
+  const membership = await assertMembership(chatId, actorId);
+  if (membership.role === 'member') throw forbidden('فقط مدیران می‌توانند لینک را باطل کنند');
+
+  await query('update chat_invites set revoked = true where chat_id = $1 and token = $2', [
+    chatId,
+    token,
+  ]);
+}
+
 export async function joinByInvite(
   token: string,
   userId: string,

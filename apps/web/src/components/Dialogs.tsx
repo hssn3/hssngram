@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { formatBytes } from '../lib/format';
 import { enablePushNotifications } from '../lib/push';
 import { SupportInbox } from '../pages/SupportPage';
+import { ChatAdminExtras } from './ChatAdminExtras';
 
 function DialogShell({
   title,
@@ -219,6 +220,9 @@ export function SettingsDialog() {
   const [pushState, setPushState] = useState<string | null>(null);
   const [privacy, setPrivacy] = useState<{ lastSeen: string; readReceipts: boolean } | null>(null);
   const [blocked, setBlocked] = useState<PublicUser[]>([]);
+  const [fontSize, setFontSize] = useState(localStorage.getItem('hssn-font') ?? 'medium');
+  const [autoTheme, setAutoTheme] = useState(localStorage.getItem('hssn-auto-theme') === '1');
+  const [wallpaper, setWallpaper] = useState(localStorage.getItem('hssn-wall') ?? 'none');
   const [sessions, setSessions] = useState<
     Array<{ id: string; userAgent: string; ip: string; lastUsedAt: string; current: boolean }>
   >([]);
@@ -338,6 +342,57 @@ export function SettingsDialog() {
           فعال‌سازی اعلان‌ها
         </button>
         {pushState ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{pushState}</span> : null}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>نمایش</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {([['small', 'کوچک'], ['medium', 'متوسط'], ['large', 'بزرگ']] as const).map(([size, label]) => (
+            <button
+              key={size}
+              className={`btn ${fontSize === size ? 'btn-primary' : ''}`}
+              onClick={() => {
+                setFontSize(size);
+                document.documentElement.dataset.font = size;
+                localStorage.setItem('hssn-font', size);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          <button
+            className={`btn ${autoTheme ? 'btn-primary' : ''}`}
+            onClick={() => {
+              const next = !autoTheme;
+              setAutoTheme(next);
+              localStorage.setItem('hssn-auto-theme', next ? '1' : '0');
+              if (next) {
+                const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+              }
+            }}
+          >
+            تم خودکار: {autoTheme ? 'روشن' : 'خاموش'}
+          </button>
+          <select
+            className="input"
+            style={{ width: 'auto' }}
+            value={wallpaper}
+            onChange={(event) => {
+              const value = event.target.value;
+              setWallpaper(value);
+              localStorage.setItem('hssn-wall', value);
+              document.documentElement.dataset.wall = value;
+            }}
+          >
+            <option value="none">بدون والپیپر</option>
+            <option value="dots">نقطه‌ای</option>
+            <option value="grid">شبکه</option>
+            <option value="glow">هاله</option>
+          </select>
+        </div>
       </div>
 
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
@@ -915,6 +970,7 @@ export function ChatInfoDialog({ chat, onClose }: { chat: Chat; onClose: () => v
       </div>
 
       <ChatExtras chat={chat} notify={notify} onClose={onClose} />
+      <ChatAdminExtras chat={chat} notify={notify} onClose={onClose} />
 
       <div className="field">        <label>رسانه‌های گفتگو</label>
         <div className="tabs" style={{ marginBottom: 8 }}>
