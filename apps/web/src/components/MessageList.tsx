@@ -24,6 +24,7 @@ export function MessageList({ chat, onReply }: Props) {
   const stickToBottom = useRef(true);
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   const [forwarding, setForwarding] = useState<Message | null>(null);
+  const [actionsFor, setActionsFor] = useState<Message | null>(null);
 
   useLayoutEffect(() => {
     const element = containerRef.current;
@@ -114,6 +115,7 @@ export function MessageList({ chat, onReply }: Props) {
               onReply={onReply}
               onOpenMedia={setLightbox}
               onForward={setForwarding}
+              onActions={setActionsFor}
             />
           </div>
         );
@@ -121,6 +123,16 @@ export function MessageList({ chat, onReply }: Props) {
 
       {forwarding ? (
         <ForwardDialog message={forwarding} onClose={() => setForwarding(null)} />
+      ) : null}
+
+      {actionsFor ? (
+        <MessageActionSheet
+          message={actionsFor}
+          chat={chat}
+          onClose={() => setActionsFor(null)}
+          onReply={onReply}
+          onForward={setForwarding}
+        />
       ) : null}
 
       {lightbox ? (
@@ -150,6 +162,7 @@ function MessageRow({
   onReply,
   onOpenMedia,
   onForward,
+  onActions,
 }: {
   message: Message;
   chat: Chat;
@@ -161,6 +174,7 @@ function MessageRow({
   onReply: (messageId: string) => void;
   onOpenMedia: (attachment: Attachment) => void;
   onForward: (message: Message) => void;
+  onActions: (message: Message) => void;
 }) {
   const user = useApp((state) => state.user);
   const editMessage = useApp((state) => state.editMessage);
@@ -282,6 +296,16 @@ function MessageRow({
           </div>
         ) : null}
       </div>
+
+      {!deleted ? (
+        <button
+          className="msg-more"
+          aria-label="منوی پیام"
+          onClick={() => onActions(message)}
+        >
+          <Icon name="more" />
+        </button>
+      ) : null}
 
       {!deleted ? (
         <div className="msg-tools">
@@ -418,5 +442,93 @@ function MessageContent({
 
       {message.body ? <div className="text">{linkify(message.body)}</div> : null}
     </>
+  );
+}
+
+function MessageActionSheet({
+  message,
+  chat,
+  onClose,
+  onReply,
+  onForward,
+}: {
+  message: Message;
+  chat: Chat;
+  onClose: () => void;
+  onReply: (messageId: string) => void;
+  onForward: (message: Message) => void;
+}) {
+  const user = useApp((state) => state.user);
+  const react = useApp((state) => state.react);
+  const pinMessage = useApp((state) => state.pinMessage);
+  const deleteForMe = useApp((state) => state.deleteForMe);
+  const deleteMessage = useApp((state) => state.deleteMessage);
+  const editMessage = useApp((state) => state.editMessage);
+
+  const me = chat.members.find((member) => member.user.id === user?.id);
+  const isOwn = message.senderId === user?.id;
+  const canEdit = isOwn && message.kind === 'text';
+  const canDelete = isOwn || me?.role === 'owner' || me?.role === 'admin';
+
+  const close = (fn: () => void) => () => {
+    onClose();
+    fn();
+  };
+
+  return (
+    <div className="overlay" onClick={onClose} role="presentation">
+      <div className="dialog action-sheet" onClick={(event) => event.stopPropagation()}>
+        <div className="dialog-head">
+          <h3>عملیات پیام</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="action-list">
+          <button onClick={close(() => onReply(message.id))}>
+            <Icon name="reply" /> پاسخ
+          </button>
+          <button onClick={close(() => void react(message.id, '❤️'))}>
+            <Icon name="smile" /> واکنش با ❤️
+          </button>
+          <button
+            onClick={close(() => {
+              onClose();
+              onForward(message);
+            })}
+          >
+            <Icon name="send" /> هدایت به گفتگو
+          </button>
+          <button onClick={close(() => void pinMessage(chat.id, message.id))}>
+            <Icon name="lock" /> سنجاق در گفتگو
+          </button>
+          {canEdit ? (
+            <button
+              onClick={close(() => {
+                const next = window.prompt('متن جدید پیام', message.body);
+                if (next && next.trim() && next.trim() !== message.body) {
+                  void editMessage(message.id, next.trim());
+                }
+              })}
+            >
+              <Icon name="edit" /> ویرایش
+            </button>
+          ) : null}
+          <button onClick={close(() => void deleteForMe(message.id))}>
+            <Icon name="close" /> حذف برای من
+          </button>
+          {canDelete ? (
+            <button
+              className="danger"
+              onClick={close(() => {
+                if (window.confirm('این پیام برای همه حذف شود؟')) void deleteMessage(message.id);
+              })}
+            >
+              <Icon name="trash" /> حذف برای همه
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

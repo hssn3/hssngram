@@ -1848,3 +1848,444 @@ a {
     max-width: 88%;
   }
 }
+
+/* =========================================================
+   Mobile hardening — iOS Safari / Android Chrome
+   ========================================================= */
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#root {
+  height: 100%;
+}
+
+.app {
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+}
+
+button,
+.btn,
+.chat-item,
+.icon-btn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.messages {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Keep media inside the bubble on narrow screens */
+.bubble img,
+.bubble video,
+.attachments img,
+.attachments video {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 900px) {
+  /* iOS bounces the whole page; lock the shell and let inner panes scroll */
+  html,
+  body {
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100%;
+    max-height: 100%;
+  }
+
+  .sidebar,
+  .main {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  .sidebar-head {
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+
+  .chat-head {
+    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .chat-head .who .name {
+    font-size: 15px;
+  }
+
+  .chat-head .who .status {
+    font-size: 11.5px;
+  }
+
+  .messages {
+    padding: 12px 10px 8px;
+    gap: 2px;
+  }
+
+  .msg {
+    max-width: 92%;
+    gap: 6px;
+  }
+
+  .msg .avatar.sm {
+    width: 30px;
+    height: 30px;
+  }
+
+  .bubble {
+    padding: 8px 12px 6px;
+    border-radius: 16px;
+  }
+
+  .bubble .text {
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .bubble .meta {
+    font-size: 10px;
+  }
+
+  /* Touch devices have no hover: always show message actions */
+  .msg-tools {
+    opacity: 1;
+    gap: 0;
+  }
+
+  .msg-tools button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .msg-tools .icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .composer {
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .composer-row {
+    border-radius: 18px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  /* 16px prevents iOS Safari from zooming into the field */
+  .composer textarea,
+  .input,
+  .search input,
+  .support-composer .input {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .composer textarea {
+    padding: 9px 4px;
+    max-height: 110px;
+  }
+
+  .composer .send {
+    width: 46px;
+    height: 46px;
+    border-radius: 15px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .emoji-pop {
+    inset-inline: 10px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    grid-template-columns: repeat(7, 1fr);
+    padding: 8px;
+  }
+
+  .emoji-pop button {
+    width: 100%;
+    height: 36px;
+  }
+
+  /* Dialogs become bottom sheets, the native messenger pattern */
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 90%;
+    border-radius: 22px 22px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheet-up 0.18s ease-out;
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(14px);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .dialog-head {
+    padding: 14px 16px;
+  }
+
+  .dialog-body {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .dialog-foot {
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .inbox {
+    grid-template-columns: 1fr;
+  }
+
+  .inbox-list {
+    max-height: 34dvh;
+  }
+
+  .attachments img,
+  .attachments video {
+    max-width: 74vw;
+    max-height: 60vh;
+  }
+
+  .file-card {
+    min-width: 0;
+    width: 100%;
+    max-width: 74vw;
+  }
+
+  .voice-row {
+    min-width: 0;
+    width: 70vw;
+  }
+
+  .pinned-bar {
+    margin: -4px 0 10px;
+    padding: 7px 10px;
+  }
+
+  /* Calls: full-bleed video and thumb-friendly controls */
+  .call-screen {
+    padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .video-grid {
+    gap: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .video-tile {
+    min-height: 140px;
+  }
+
+  .call-controls {
+    gap: 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .call-controls button {
+    width: 60px;
+    height: 60px;
+  }
+
+  .call-controls button.hangup {
+    width: 68px;
+    height: 68px;
+  }
+
+  .support-page {
+    padding: calc(8px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .support-chat {
+    border-radius: 18px;
+  }
+
+  .support-messages {
+    max-height: none;
+    min-height: 0;
+  }
+
+  .support-bubble {
+    max-width: 86%;
+    font-size: 15px;
+  }
+
+  .toast {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+
+  .auth-panel {
+    padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    align-items: flex-start;
+  }
+
+  .auth-card {
+    padding: 22px;
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .chat-head .who .status {
+    display: none;
+  }
+
+  .bubble .text {
+    font-size: 14.5px;
+  }
+}
+
+/* Landscape phones: keep the composer usable */
+@media (max-height: 460px) and (orientation: landscape) {
+  .chat-head {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .composer textarea {
+    max-height: 64px;
+  }
+
+  .messages {
+    padding-top: 8px;
+  }
+}
+
+/* ---------- mobile message action sheet ---------- */
+
+.msg-more {
+  display: none;
+  align-self: flex-end;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  color: var(--muted-2);
+  align-items: center;
+  justify-content: center;
+}
+
+.msg-more:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.action-sheet {
+  width: min(420px, 100%);
+}
+
+.action-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.action-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  text-align: start;
+  color: var(--text);
+}
+
+.action-list button:hover,
+.action-list button:active {
+  background: var(--panel-2);
+}
+
+.action-list button.danger {
+  color: var(--danger);
+}
+
+.action-list .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.action-list button.danger .icon {
+  color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .msg-more {
+    display: inline-flex;
+  }
+
+  .msg-tools {
+    display: none;
+  }
+}
+
+/* Action sheet must scroll on short phones */
+.action-sheet {
+  max-height: 84dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-sheet .action-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .action-sheet {
+    max-height: 88dvh;
+  }
+
+  .action-list button {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}

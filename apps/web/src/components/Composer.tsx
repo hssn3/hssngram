@@ -208,7 +208,10 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
           <textarea
             ref={textareaRef}
             rows={1}
-            placeholder="پیام خود را بنویسید…"
+            dir="auto"
+            enterKeyHint="send"
+            autoComplete="off"
+            placeholder="پیام…"
             value={text}
             onChange={(event) => onTextChange(event.target.value)}
             onKeyDown={(event) => {
@@ -245,3 +248,4 @@ export function Composer({ chatId, replyTo, onClearReply }: Props) {
     </div>
   );
 }
+
