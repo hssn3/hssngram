@@ -443,7 +443,7 @@ test('admin overview reports counts', async () => {
   assert.ok(result.body.messages >= 3);
 
   const denied = await call('GET', '/api/admin/overview', { token: state.carolToken });
-  assert.equal(denied.status, 401);
+  assert.equal(denied.status, 403);
 });
 
 test('admin can add and delete a user directly', async () => {
@@ -489,6 +489,9 @@ test('a guest can chat with the admin and be converted into a user', async () =>
   assert.equal(threads.status, 200);
   assert.equal(threads.body.threads.length, 1);
   assert.equal(threads.body.threads[0].unreadForAdmin, 1);
+
+  const forbidden = await call('GET', '/api/admin/support', { token: state.carolToken });
+  assert.equal(forbidden.status, 403, 'normal users must not read the support inbox');
 
   const threadId = threads.body.threads[0].id as string;
   const detail = await call('GET', `/api/admin/support/${threadId}`, { token: state.adminToken });

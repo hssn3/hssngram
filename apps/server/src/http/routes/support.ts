@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { requireAuth, currentUser } from '../middleware/auth.js';
+import { requireAdmin, requireAuth, currentUser } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { parse } from '../validate.js';
 import { badRequest, forbidden } from '../../lib/errors.js';
@@ -128,7 +128,7 @@ export function supportRoutes(): Router {
 
 export function adminSupportRoutes(): Router {
   const router = Router();
-  router.use(requireAuth);
+  router.use(requireAuth, requireAdmin);
 
   router.get('/', async (_req, res) => {
     res.json({ threads: await listSupportThreads() });

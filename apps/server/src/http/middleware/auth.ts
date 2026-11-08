@@ -1,5 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { unauthorized } from '../../lib/errors.js';
+import { forbidden, unauthorized } from '../../lib/errors.js';
 import { verifyAccessToken, type AccessClaims } from '../../lib/jwt.js';
 
 export type AuthedRequest = Request & { auth: AccessClaims };
@@ -36,7 +36,7 @@ export const requireAuth: RequestHandler = async (
 export const requireAdmin: RequestHandler = (req, _res, next) => {
   const auth = (req as AuthedRequest).auth;
   if (!auth?.isAdmin) {
-    next(unauthorized('این بخش فقط برای مدیر سرور است'));
+    next(forbidden('این بخش فقط برای مدیر سرور است'));
     return;
   }
   next();
