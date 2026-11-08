@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests (API integration on PGlite)
+        run: npm test
+
+      - name: Build web + server
+        run: npm run build
+
+      - name: Build docker image
+        run: docker build -t hssngram:ci .
+
+      - name: Smoke test image
+        run: |
+          docker run -d --name hssn-smoke -p 8080:8080 \
+            -e JWT_SECRET=ci-secret-ci-secret-ci-secret \
+            -e MIGRATE_ON_START=false \
+            -e DATABASE_URL=postgres://invalid:invalid@127.0.0.1:5432/none \
+            hssngram:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/api/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/api/health
+          docker rm -f hssn-smoke

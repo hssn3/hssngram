@@ -1,0 +1,26 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Security headers for the SPA shell.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Big uploads go through the API in local-storage mode.
+	request_body {
+		max_size 210MB
+	}
+
+	reverse_proxy app:8080 {
+		# Streaming uploads / media downloads must not be buffered.
+		flush_interval -1
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

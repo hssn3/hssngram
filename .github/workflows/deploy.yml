@@ -1,0 +1,54 @@
+name: Deploy to ArvanCloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Verify before shipping
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+
+      # Requires repository secrets:
+      #   ARVAN_HOST     — server IP
+      #   ARVAN_USER     — ssh user (root or ubuntu)
+      #   ARVAN_SSH_KEY  — private key
+      #   ARVAN_APP_DIR  — e.g. /opt/hssngram
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ARVAN_HOST }}
+          username: ${{ secrets.ARVAN_USER }}
+          key: ${{ secrets.ARVAN_SSH_KEY }}
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -e
+            cd "${{ secrets.ARVAN_APP_DIR }}"
+            git fetch --all --prune
+            git reset --hard origin/main
+            docker compose pull db caddy turn || true
+            docker compose up -d --build --remove-orphans
+            docker image prune -f
+            sleep 5
+            docker compose ps
+            curl -fsS "http://127.0.0.1:8080/api/health" || true

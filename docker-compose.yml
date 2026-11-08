@@ -1,0 +1,73 @@
+name: hssngram
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: hssngram
+      POSTGRES_USER: hssngram
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hssngram -d hssngram']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./apps/server/.env
+    environment:
+      DATABASE_URL: postgres://hssngram:${POSTGRES_PASSWORD:-change-me}@db:5432/hssngram
+      TRUST_PROXY: 'true'
+    volumes:
+      - uploads:/data/uploads
+    expose:
+      - '8080'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:-hssngram.hssn.my.id}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # WebRTC TURN relay. Required for calls between networks with strict NAT.
+  # Host networking keeps the UDP relay ports usable without a huge port range.
+  turn:
+    image: coturn/coturn:4.6-alpine
+    restart: always
+    network_mode: host
+    command:
+      - --listening-port=3478
+      - --fingerprint
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SECRET:-change-me-turn-secret}
+      - --realm=${DOMAIN:-hssngram.hssn.my.id}
+      - --no-cli
+      - --no-tls
+      - --min-port=49160
+      - --max-port=49200
+      - --log-file=stdout
+      - --no-multicast-peers
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:
