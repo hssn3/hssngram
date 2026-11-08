@@ -25,6 +25,7 @@ import {
   setMemberRights,
   setSlowMode,
 } from '../../services/channel.js';
+import { clearHistory } from '../../services/message-extras.js';
 import { emitToUsers } from '../../realtime/index.js';
 import { publishChat, publishNewChat } from '../../realtime/index.js';
 import { storage } from '../../storage/index.js';
@@ -48,7 +49,8 @@ export function chatRoutes(): Router {
 
   router.get('/', async (req, res) => {
     const { userId } = currentUser(req);
-    res.json({ chats: await listChats(userId) });
+    const archived = req.query.archived === 'true';
+    res.json({ chats: await listChats(userId, archived) });
   });
 
   router.post('/direct', async (req, res) => {
@@ -150,8 +152,13 @@ export function chatRoutes(): Router {
     res.json({ ok: true });
   });
 
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id/messages', async (req, res) => {
     const { userId } = currentUser(req);
+    const hidden = await clearHistory(String(req.params.id), userId);
+    res.json({ ok: true, hidden });
+  });
+
+  router.delete('/:id', async (req, res) => {    const { userId } = currentUser(req);
     const chatId = String(req.params.id);
     const membership = await assertMembership(chatId, userId);
     if (membership.role !== 'owner') {
@@ -299,3 +306,5 @@ export function channelRoutes(): Router {
 
   return router;
 }
+
+

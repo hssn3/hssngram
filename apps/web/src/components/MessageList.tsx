@@ -3,6 +3,7 @@ import { useApp } from '../store/useApp';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
 import { ForwardDialog } from './ForwardDialog';
+import { api } from '../lib/api';
 import { formatBytes, formatDayLabel, formatDuration, formatTime } from '../lib/format';
 import { renderRichText } from '../lib/rich-text';
 import type { Attachment, Chat, Message } from '../types';
@@ -554,6 +555,33 @@ function MessageActionSheet({
           ) : null}
           <button onClick={close(() => void deleteForMe(message.id))}>
             <Icon name="close" /> حذف برای من
+          </button>
+          <button
+            onClick={close(() => {
+              void navigator.clipboard.writeText(message.body).catch(() => undefined);
+            })}
+          >
+            <Icon name="file" /> کپی متن
+          </button>
+          <button
+            onClick={close(async () => {
+              try {
+                const data = await api<{ readBy: Array<{ displayName: string }> }>(
+                  `/messages/${message.id}/readers`,
+                );
+                useApp
+                  .getState()
+                  .notify(
+                    data.readBy.length
+                      ? `خوانده‌شده توسط: ${data.readBy.map((row) => row.displayName).join('، ')}`
+                      : 'هنوز کسی این پیام را نخوانده است',
+                  );
+              } catch {
+                useApp.getState().notify('دریافت اطلاعات خوانندگان ناموفق بود', 'error');
+              }
+            })}
+          >
+            <Icon name="checks" /> چه کسی خوانده است؟
           </button>
           {canDelete ? (
             <button

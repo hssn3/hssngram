@@ -219,6 +219,9 @@ export function SettingsDialog() {
   const [pushState, setPushState] = useState<string | null>(null);
   const [privacy, setPrivacy] = useState<{ lastSeen: string; readReceipts: boolean } | null>(null);
   const [blocked, setBlocked] = useState<PublicUser[]>([]);
+  const [sessions, setSessions] = useState<
+    Array<{ id: string; userAgent: string; ip: string; lastUsedAt: string; current: boolean }>
+  >([]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordState, setPasswordState] = useState<string | null>(null);
@@ -232,6 +235,10 @@ export function SettingsDialog() {
         setPrivacy(data.privacy);
         const list = await api<{ users: PublicUser[] }>('/users/blocked');
         setBlocked(list.users);
+        const active = await api<{
+          sessions: Array<{ id: string; userAgent: string; ip: string; lastUsedAt: string; current: boolean }>;
+        }>('/auth/sessions');
+        setSessions(active.sessions);
       } catch {
         // keep the panel hidden when the request fails
       }
@@ -391,6 +398,63 @@ export function SettingsDialog() {
             ))}
           </div>
         ) : null}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>نشست‌های فعال</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {sessions.map((session) => (
+            <div key={session.id} className="user-row" style={{ padding: 6 }}>
+              <span className="info">
+                <span className="n">
+                  {session.userAgent ? session.userAgent.slice(0, 60) : 'دستگاه ناشناس'}
+                </span>
+                <span className="u">
+                  {session.ip || '—'} • {new Date(session.lastUsedAt).toLocaleDateString('fa-IR')}
+                </span>
+              </span>
+              {session.current ? (
+                <span className="pill ok">فعلی</span>
+              ) : (
+                <button
+                  className="btn"
+                  style={{ padding: '4px 10px' }}
+                  onClick={async () => {
+                    await api(`/auth/sessions/${session.id}`, { method: 'DELETE' });
+                    setSessions((current) => current.filter((item) => item.id !== session.id));
+                  }}
+                >
+                  پایان
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button
+          className="btn"
+          style={{ marginTop: 8 }}
+          onClick={async () => {
+            const data = await api<unknown>('/export');
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'hssngram-export.json';
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Icon name="download" /> خروجی کامل داده (JSON)
+        </button>
+
+        <button
+          className="btn btn-danger"
+          style={{ marginTop: 8, marginInlineStart: 8 }}
+          onClick={() => void logout()}
+        >
+          <Icon name="logout" /> خروج از حساب
+        </button>
       </div>
 
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>

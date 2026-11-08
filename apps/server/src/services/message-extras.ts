@@ -207,6 +207,22 @@ export async function archiveChat(
   ]);
 }
 
+/** Clears the whole history for one member without touching anyone else. */
+export async function clearHistory(chatId: string, userId: string): Promise<number> {
+  await assertMembership(chatId, userId);
+  const rows = await query<{ count: string }>(
+    `with inserted as (
+       insert into message_hidden (message_id, user_id)
+       select m.id, $2 from messages m where m.chat_id = $1
+       on conflict do nothing
+       returning 1
+     )
+     select count(*)::text as count from inserted`,
+    [chatId, userId],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
 /** Removes a storage object only when no other message references it. */
 export async function removeAttachmentIfUnused(storageKey: string): Promise<void> {
   const remaining = await queryOne<{ count: string }>(

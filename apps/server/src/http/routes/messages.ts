@@ -186,7 +186,8 @@ export function messageRoutes(): Router {
   router.get('/search', async (req, res) => {
     const { userId } = currentUser(req);
     const term = String(req.query.q ?? '');
-    const messages = await searchMessages(userId, term);
+    const kind = typeof req.query.kind === 'string' ? req.query.kind : null;
+    const messages = await searchMessages(userId, term, 30, kind);
     res.json({ messages });
   });
 
@@ -200,3 +201,4 @@ async function getChatIdForMessage(messageId: string): Promise<string | null> {
   ]);
   return row?.chat_id ?? null;
 }
+

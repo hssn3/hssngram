@@ -854,3 +854,44 @@ test('forwarding can hide the original author', async () => {
   assert.equal(forwarded.status, 201);
   assert.equal(forwarded.body.message.forwardFromName, null);
 });
+
+test('archive listing, clear history and filtered search', async () => {
+  const archived = await call('GET', '/api/chats?archived=true', { token: state.adminToken });
+  assert.equal(archived.status, 200);
+
+  const flag = await call('POST', `/api/chats/${state.chatId}/archive`, {
+    token: state.adminToken,
+    body: { archived: true },
+  });
+  assert.equal(flag.status, 200);
+
+  const archivedNow = await call('GET', '/api/chats?archived=true', { token: state.adminToken });
+  assert.ok(archivedNow.body.chats.some((chat: Json) => chat.id === state.chatId));
+
+  const restored = await call('POST', `/api/chats/${state.chatId}/archive`, {
+    token: state.adminToken,
+    body: { archived: false },
+  });
+  assert.equal(restored.status, 200);
+
+  const filtered = await call('GET', '/api/search?q=' + encodeURIComponent('فایل') + '&kind=file', {
+    token: state.adminToken,
+  });
+  assert.equal(filtered.status, 200);
+  assert.ok(filtered.body.messages.every((message: Json) => message.kind === 'file'));
+
+  const cleared = await call('DELETE', `/api/chats/${state.chatId}/messages`, {
+    token: state.carolToken,
+  });
+  assert.equal(cleared.status, 200);
+
+  const afterClear = await call('GET', `/api/chats/${state.chatId}/messages`, {
+    token: state.carolToken,
+  });
+  assert.ok(afterClear.body.messages.length < 5);
+
+  const stillVisible = await call('GET', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+  });
+  assert.ok(stillVisible.body.messages.length >= 5);
+});

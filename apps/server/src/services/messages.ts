@@ -265,6 +265,7 @@ export async function searchMessages(
   userId: string,
   term: string,
   limit = 30,
+  kind: string | null = null,
 ): Promise<Array<MessageDto & { chatTitle: string }>> {
   const cleaned = term.trim();
   if (cleaned.length < 2) return [];
@@ -275,11 +276,12 @@ export async function searchMessages(
      join chat_members cm on cm.chat_id = m.chat_id and cm.user_id = $1
      join chats c on c.id = m.chat_id
      where m.deleted_at is null
+       and ($5::text is null or m.kind = $5)
        and (to_tsvector('simple', m.body) @@ plainto_tsquery('simple', $2)
             or m.body ilike $3)
      order by m.created_at desc
      limit $4`,
-    [userId, cleaned, `%${cleaned.replace(/[%_]/g, '\\$&')}%`, limit],
+    [userId, cleaned, `%${cleaned.replace(/[%_]/g, '\\$&')}%`, limit, kind],
   );
 
   const hydrated = await hydrateMessages(rows);
@@ -288,3 +290,5 @@ export async function searchMessages(
     chatTitle: rows[index]!.chat_title,
   }));
 }
+
+
