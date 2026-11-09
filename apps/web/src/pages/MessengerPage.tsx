@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/useApp';
 import { useCall } from '../store/useCall';
@@ -16,6 +17,7 @@ const NO_USER_IDS: string[] = [];
 
 export function MessengerPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
   const ready = useApp((state) => state.ready);
   const booting = useApp((state) => state.booting);
@@ -52,6 +54,13 @@ export function MessengerPage() {
     setReplyTo(null);
     setInfoOpen(false);
   }, [activeChatId]);
+
+  useEffect(() => {
+    const target = params.get('chat');
+    if (target && chats.some((chat) => chat.id === target) && target !== activeChatId) {
+      void useApp.getState().selectChat(target);
+    }
+  }, [params, chats, activeChatId]);
 
   if (booting || !ready) {
     return (
@@ -284,4 +293,5 @@ export function CallDuration({ startedAt }: { startedAt: number | null }) {
   if (!startedAt) return null;
   return <>{(now - startedAt) / 1000 >= 0 ? formatDuration((now - startedAt) / 1000) : '00:00'}</>;
 }
+
 

@@ -73,6 +73,7 @@ export type Chat = {
   pinnedMessage: Message | null;
   unread: number;
   mutedUntil: string | null;
+  slowmodeSeconds?: number;
   archived?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -95,4 +96,5 @@ export type IceServer = {
   username?: string;
   credential?: string;
 };
+
 

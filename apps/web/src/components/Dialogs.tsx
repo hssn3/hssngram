@@ -342,6 +342,25 @@ export function SettingsDialog() {
           فعال‌سازی اعلان‌ها
         </button>
         {pushState ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{pushState}</span> : null}
+
+        <button
+          className="btn"
+          onClick={async () => {
+            try {
+              const permission = await Notification.requestPermission();
+              if (permission !== 'granted') {
+                setPushState('اجازه اعلان داده نشد');
+                return;
+              }
+              new Notification('HssNGram', { body: 'اعلان‌ها کار می‌کنند ✅', icon: '/icons/icon-192.png' });
+              setPushState('اعلان آزمایشی ارسال شد');
+            } catch {
+              setPushState('مرورگر اعلان نمی‌دهد');
+            }
+          }}
+        >
+          <Icon name="checks" /> آزمایش اعلان
+        </button>
       </div>
 
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
@@ -1146,6 +1165,16 @@ export function ProfileDialog({ userId, onClose }: { userId: string; onClose: ()
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 17 }}>{person.displayName}</div>
                   <div style={{ color: 'var(--muted)', direction: 'ltr' }}>{person.username}</div>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: '2px 6px', fontSize: 11 }}
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(person.username).catch(() => undefined);
+                      notify('شناسه کپی شد');
+                    }}
+                  >
+                    کپی شناسه
+                  </button>
                   {person.bio ? (
                     <div style={{ fontSize: 13, color: 'var(--muted)' }}>{person.bio}</div>
                   ) : null}
@@ -1180,4 +1209,5 @@ export function ProfileDialog({ userId, onClose }: { userId: string; onClose: ()
     </div>
   );
 }
+
 
