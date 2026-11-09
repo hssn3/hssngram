@@ -34,6 +34,7 @@ const sendSchema = z.object({
   clientId: z.string().max(64).optional(),
   silent: z.boolean().optional(),
   scheduledAt: z.string().datetime().nullish(),
+  ttlSeconds: z.number().int().min(0).max(604800).nullish(),
 });
 
 const editSchema = z.object({ body: z.string().min(1).max(8000) });
@@ -73,6 +74,7 @@ export function messageRoutes(): Router {
         meta: { ...body.meta, clientId: body.clientId },
         silent: body.silent,
         scheduledAt: body.scheduledAt ?? null,
+        ttlSeconds: body.ttlSeconds ?? null,
       });
 
       if (message.scheduledAt) {
@@ -201,4 +203,5 @@ async function getChatIdForMessage(messageId: string): Promise<string | null> {
   ]);
   return row?.chat_id ?? null;
 }
+
 

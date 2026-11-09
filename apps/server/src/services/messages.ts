@@ -29,6 +29,7 @@ export type SendMessageInput = {
   meta?: Record<string, unknown>;
   silent?: boolean;
   scheduledAt?: string | null;
+  ttlSeconds?: number | null;
 };
 
 export async function sendMessage(input: SendMessageInput): Promise<MessageDto> {
@@ -84,7 +85,7 @@ export async function sendMessage(input: SendMessageInput): Promise<MessageDto> 
       'select ttl_seconds from chat_members where chat_id = $1 and user_id = $2',
       [input.chatId, input.senderId],
     );
-    const ttlSeconds = member.rows[0]?.ttl_seconds ?? null;
+    const ttlSeconds = input.ttlSeconds ?? member.rows[0]?.ttl_seconds ?? null;
 
     const scheduled = input.scheduledAt ? new Date(input.scheduledAt) : null;
     const isFuture = Boolean(scheduled && scheduled.getTime() > Date.now() + 1500);

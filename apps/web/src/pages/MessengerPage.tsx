@@ -10,6 +10,7 @@ import { AdminDialog, ChatInfoDialog, NewChatDialog, SettingsDialog } from '../c
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
 import { formatLastSeen, formatDuration, displayTitle } from '../lib/format';
+import { api } from '../lib/api';
 
 const NO_USER_IDS: string[] = [];
 
@@ -28,6 +29,7 @@ export function MessengerPage() {
 
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     void init();
@@ -70,7 +72,11 @@ export function MessengerPage() {
       <main className="main">
         {activeChat ? (
           <>
-            <ChatHeader chat={activeChat} onInfo={() => setInfoOpen(true)} />
+            <ChatHeader
+              chat={activeChat}
+              onInfo={() => setInfoOpen(true)}
+              onSearch={() => setSearchOpen(true)}
+            />
             <MessageList chat={activeChat} onReply={setReplyTo} />
                       <Composer
             chatId={activeChat.id}
@@ -94,6 +100,10 @@ export function MessengerPage() {
       {dialog === 'new-chat' ? <NewChatDialog /> : null}
       {dialog === 'settings' ? <SettingsDialog /> : null}
       {dialog === 'admin' ? <AdminDialog /> : null}
+      {searchOpen && activeChat ? (
+        <ChatSearch chatId={activeChat.id} onClose={() => setSearchOpen(false)} />
+      ) : null}
+
       {infoOpen && activeChat ? (
         <ChatInfoDialog chat={activeChat} onClose={() => setInfoOpen(false)} />
       ) : null}
@@ -112,9 +122,11 @@ export function MessengerPage() {
 function ChatHeader({
   chat,
   onInfo,
+  onSearch,
 }: {
   chat: NonNullable<ReturnType<typeof useApp.getState>['chats'][number]>;
   onInfo: () => void;
+  onSearch: () => void;
 }) {
   const user = useApp((state) => state.user);
   const closeChat = useApp((state) => state.closeChat);
@@ -176,10 +188,87 @@ function ChatHeader({
         <Icon name="video" />
       </button>
 
+      <button className="icon-btn" aria-label="جستجو در گفتگو" onClick={onSearch}>
+        <Icon name="search" />
+      </button>
+
       <button className="icon-btn" aria-label="اطلاعات گفتگو" onClick={onInfo}>
         <Icon name={chat.type === 'group' ? 'users' : 'more'} />
       </button>
     </header>
+  );
+}
+
+function ChatSearch({ chatId, onClose }: { chatId: string; onClose: () => void }) {
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Array<{ id: string; body: string; createdAt: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const clean = term.trim();
+    if (clean.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await api<{ messages: Array<{ id: string; body: string; createdAt: string }> }>(
+          `/chats/${chatId}/search?q=${encodeURIComponent(clean)}`,
+        );
+        setResults(data.messages);
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [term, chatId]);
+
+  return (
+    <div className="overlay" onClick={onClose} role="presentation">
+      <div className="dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="dialog-head">
+          <h3>جستجو در این گفتگو</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="dialog-body">
+          <div className="search" style={{ padding: '0 14px' }}>
+            <Icon name="search" />
+            <input
+              autoFocus
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder="حداقل دو نویسه…"
+            />
+          </div>
+
+          {loading ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>در حال جستجو…</p> : null}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {results.map((message) => (
+              <div key={message.id} className="user-row" style={{ padding: 8 }}>
+                <span className="info">
+                  <span className="n" style={{ fontSize: 13 }}>
+                    {message.body.slice(0, 120)}
+                  </span>
+                  <span className="u">{new Date(message.createdAt).toLocaleString('fa-IR')}</span>
+                </span>
+              </div>
+            ))}
+
+            {!loading && term.trim().length >= 2 && results.length === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>نتیجه‌ای پیدا نشد.</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -195,3 +284,4 @@ export function CallDuration({ startedAt }: { startedAt: number | null }) {
   if (!startedAt) return null;
   return <>{(now - startedAt) / 1000 >= 0 ? formatDuration((now - startedAt) / 1000) : '00:00'}</>;
 }
+
