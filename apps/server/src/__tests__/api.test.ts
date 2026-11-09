@@ -925,3 +925,30 @@ test('invite links can be listed and revoked', async () => {
   });
   assert.notEqual(join.status, 200);
 });
+
+test('chat stats, shared links and read-all', async () => {
+  const stats = await call('GET', `/api/chats/${state.chatId}/stats`, {
+    token: state.adminToken,
+  });
+  assert.equal(stats.status, 200);
+  assert.ok(stats.body.stats.messages >= 1);
+  assert.equal(stats.body.stats.members, 2);
+
+  const sent = await call('POST', `/api/chats/${state.chatId}/messages`, {
+    token: state.adminToken,
+    body: { body: 'این هم یک لینک https://example.com/test است' },
+  });
+  assert.equal(sent.status, 201);
+
+  const links = await call('GET', `/api/chats/${state.chatId}/links`, {
+    token: state.adminToken,
+  });
+  assert.equal(links.status, 200);
+  assert.ok(links.body.links.some((link: Json) => String(link.url).includes('example.com')));
+
+  const readAll = await call('POST', '/api/chats/read-all', { token: state.carolToken });
+  assert.equal(readAll.status, 200);
+
+  const account = await call('GET', '/api/me/stats', { token: state.adminToken });
+  assert.ok(account.body.stats.chats >= 1);
+});

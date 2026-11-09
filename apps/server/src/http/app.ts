@@ -15,6 +15,7 @@ import { pushRoutes } from './routes/push.js';
 import { adminRoutes } from './routes/admin.js';
 import { adminSupportRoutes, supportRoutes } from './routes/support.js';
 import { extrasRoutes } from './routes/extras.js';
+import { insightRoutes } from './routes/insights.js';
 import { connectionCount } from '../services/presence.js';
 import { pushEnabled } from '../services/push.js';
 import { storage } from '../storage/index.js';
@@ -63,6 +64,7 @@ export function createApp(): express.Express {
   });
 
   app.use('/api/auth', authRoutes());
+  app.use('/api', insightRoutes());
   app.use('/api', extrasRoutes());
   app.use('/api/users', userRoutes());
   app.use('/api/avatars', avatarRoutes());
@@ -139,6 +141,7 @@ export function createApp(): express.Express {
   app.use(errorHandler);
   return app;
 }
+
 
 
 

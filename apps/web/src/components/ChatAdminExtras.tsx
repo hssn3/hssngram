@@ -25,6 +25,15 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
   const [title, setTitle] = useState(chat.title);
   const [slow, setSlow] = useState(chat.slowmodeSeconds ?? 0);
   const [pins, setPins] = useState<Message[]>([]);
+  const [stats, setStats] = useState<{
+    messages: number;
+    images: number;
+    videos: number;
+    files: number;
+    links: number;
+    storageBytes: number;
+  } | null>(null);
+  const [links, setLinks] = useState<Array<{ messageId: string; url: string }>>([]);
 
   const me = chat.members.find((member) => member.user.id === user?.id);
   const isManager = me?.role === 'owner' || me?.role === 'admin';
@@ -60,6 +69,21 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
     setPins((current) => current.filter((item) => item.id !== messageId));
     notify('سنجاق برداشته شد');
   }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [statsData, linksData] = await Promise.all([
+          api<{ stats: typeof stats }>(`/chats/${chat.id}/stats`),
+          api<{ links: typeof links }>(`/chats/${chat.id}/links`),
+        ]);
+        setStats(statsData.stats);
+        setLinks(linksData.links.slice(0, 5));
+      } catch {
+        // ignore
+      }
+    })();
+  }, [chat.id]);
 
   async function uploadAvatar(file: File) {
     const token = getAccessToken();
@@ -202,6 +226,42 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
             ))}
           </div>
         </>
+      ) : null}
+
+      <div className="field">
+        <label>آمار گفتگو</label>
+        {!stats ? (
+          <p style={{ color: 'var(--muted)', fontSize: 12 }}>در حال بارگذاری…</p>
+        ) : (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span className="pill">پیام: {stats.messages}</span>
+            <span className="pill">عکس: {stats.images}</span>
+            <span className="pill">ویدیو: {stats.videos}</span>
+            <span className="pill">فایل: {stats.files}</span>
+            <span className="pill">لینک: {stats.links}</span>
+            <span className="pill">حجم: {Math.round(stats.storageBytes / 1024)} KB</span>
+          </div>
+        )}
+      </div>
+
+      {links.length > 0 ? (
+        <div className="field">
+          <label>لینک‌های گفتگو</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {links.map((link) => (
+              <a
+                key={link.messageId + link.url}
+                className="user-row"
+                style={{ padding: 6, direction: 'ltr', fontSize: 12 }}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {link.url.slice(0, 60)}
+              </a>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       <div className="field">
