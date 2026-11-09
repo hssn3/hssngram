@@ -28,6 +28,7 @@ import {
   revokeInvite,
 } from '../../services/channel.js';
 import { clearHistory } from '../../services/message-extras.js';
+import { addPin, listPins, removePin } from '../../services/pins.js';
 import { emitToUsers } from '../../realtime/index.js';
 import { publishChat, publishNewChat } from '../../realtime/index.js';
 import { storage } from '../../storage/index.js';
@@ -275,6 +276,24 @@ export function channelRoutes(): Router {
     res.status(201).json(invite);
   });
 
+  router.get('/:id/pins', async (req, res) => {
+    const { userId } = currentUser(req);
+    res.json({ pins: await listPins(String(req.params.id), userId) });
+  });
+
+  router.post('/:id/pins', async (req, res) => {
+    const { userId } = currentUser(req);
+    const { messageId } = parse(z.object({ messageId: z.string().uuid() }), req.body);
+    await addPin(String(req.params.id), userId, messageId);
+    res.status(201).json({ ok: true });
+  });
+
+  router.delete('/:id/pins/:messageId', async (req, res) => {
+    const { userId } = currentUser(req);
+    await removePin(String(req.params.id), userId, String(req.params.messageId));
+    res.json({ ok: true });
+  });
+
   router.get('/:id/invites', async (req, res) => {
     const { userId } = currentUser(req);
     res.json({ invites: await listInvites(String(req.params.id), userId) });
@@ -319,6 +338,7 @@ export function channelRoutes(): Router {
 
   return router;
 }
+
 
 
 

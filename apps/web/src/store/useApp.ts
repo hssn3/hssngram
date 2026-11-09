@@ -560,6 +560,20 @@ function bindSocket(): void {
   socket.on('disconnect', () => useApp.setState({ connected: false }));
 
   socket.on('message:new', (message: Message) => {
+    if (document.hidden && message.senderId !== useApp.getState().user?.id) {
+      const original = document.title;
+      let flip = false;
+      const timer = window.setInterval(() => {
+        flip = !flip;
+        document.title = flip ? 'پیام جدید' : original;
+      }, 1200);
+      const stop = () => {
+        window.clearInterval(timer);
+        document.title = original;
+        window.removeEventListener('visibilitychange', stop);
+      };
+      window.addEventListener('visibilitychange', stop);
+    }
     const state = useApp.getState();
     const isActive = state.activeChatId === message.chatId;
     const isOwn = message.senderId === state.user?.id;
@@ -697,3 +711,4 @@ function bindSocket(): void {
     });
   });
 }
+

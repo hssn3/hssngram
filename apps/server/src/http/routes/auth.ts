@@ -15,6 +15,7 @@ import {
   revokeSession,
 } from '../../services/auth.js';
 import { getUserById, toPublicUser } from '../../services/users.js';
+import { query } from '../../db/pool.js';
 import { notFound } from '../../lib/errors.js';
 
 const registerSchema = z.object({
@@ -119,6 +120,15 @@ export function authRoutes(): Router {
     });
   });
 
+  router.delete('/sessions', requireAuth, async (req, res) => {
+    const { userId, sessionId } = currentUser(req);
+    await query(
+      'update sessions set revoked_at = now() where user_id = $1 and id <> $2 and revoked_at is null',
+      [userId, sessionId],
+    );
+    res.json({ ok: true });
+  });
+
   router.delete('/sessions/:id', requireAuth, async (req, res) => {
     const { userId } = currentUser(req);
     await revokeSession(userId, String(req.params.id));
@@ -127,3 +137,4 @@ export function authRoutes(): Router {
 
   return router;
 }
+

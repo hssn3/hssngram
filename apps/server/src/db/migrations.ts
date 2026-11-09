@@ -293,4 +293,17 @@ export const migrations: Migration[] = [
       create index if not exists chat_invites_chat_idx on chat_invites (chat_id);
     `,
   },
+  {
+    id: '0007_multi_pins',
+    sql: /* sql */ `
+      create table if not exists chat_pins (
+        chat_id uuid not null references chats(id) on delete cascade,
+        message_id uuid not null references messages(id) on delete cascade,
+        pinned_by uuid references users(id) on delete set null,
+        created_at timestamptz not null default now(),
+        primary key (chat_id, message_id)
+      );
+      create index if not exists chat_pins_chat_idx on chat_pins (chat_id, created_at desc);
+    `,
+  },
 ];
