@@ -68,7 +68,12 @@ export function MessageList({ chat, onReply }: Props) {
   return (
     <div className="messages" ref={containerRef}>
       {chat.pinnedMessage ? (
-        <div className="pinned-bar">
+        <div className="pinned-bar" onClick={() => {
+          if (!chat.pinnedMessage) return;
+          document
+            .getElementById(`m-${chat.pinnedMessage.id}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}>
           <Icon name="lock" />
           <span className="pinned-text">
             {chat.pinnedMessage.kind === 'text'
@@ -209,7 +214,10 @@ function MessageRow({
   }
 
   return (
-    <div className={`msg ${isOwn ? 'mine' : 'theirs'} ${isTail ? 'tail' : ''}`}>
+    <div
+      id={`m-${message.id}`}
+      className={`msg ${isOwn ? 'mine' : 'theirs'} ${isTail ? 'tail' : ''}`}
+    >
       {chat.type === 'group' && !isOwn ? (
         <Avatar name={sender?.displayName ?? '?'} src={sender?.avatarUrl} size="sm" />
       ) : null}
@@ -440,7 +448,17 @@ function MessageContent({
         </div>
       ) : null}
 
-      {message.body ? <div className="text">{renderRichText(message.body)}</div> : null}
+      {message.body ? (
+        <div
+          className={
+            message.body.length <= 8 && /^[\p{Extended_Pictographic}\s]+$/u.test(message.body)
+              ? 'text emoji-only'
+              : 'text'
+          }
+        >
+          {renderRichText(message.body)}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -562,6 +580,28 @@ function MessageActionSheet({
             })}
           >
             <Icon name="file" /> کپی متن
+          </button>
+          <button
+            onClick={close(() => {
+              const link = `${window.location.origin}/app?chat=${chat.id}&message=${message.id}`;
+              void navigator.clipboard.writeText(link).catch(() => undefined);
+              useApp.getState().notify('لینک پیام کپی شد');
+            })}
+          >
+            <Icon name="send" /> کپی لینک پیام
+          </button>
+          <button
+            onClick={close(async () => {
+              const me = useApp.getState().user;
+              if (!me) return;
+              const saved = await api<{ chat: { id: string } }>('/chats/direct', {
+                method: 'POST',
+                body: { userId: me.id },
+              });
+              await useApp.getState().forwardMessage(message.id, saved.chat.id);
+            })}
+          >
+            <Icon name="file" /> ارسال به پیام‌های ذخیره‌شده
           </button>
           <button
             onClick={close(async () => {

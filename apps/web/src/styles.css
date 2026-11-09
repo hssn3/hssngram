@@ -2586,3 +2586,12 @@ html[data-wall='glow'] .messages {
   background-image: radial-gradient(600px 300px at 70% 0%, rgba(109, 94, 252, 0.16), transparent 70%);
   background-repeat: no-repeat;
 }
+
+.emoji-only {
+  font-size: 34px;
+  line-height: 1.25;
+}
+
+.pinned-bar {
+  cursor: pointer;
+}
