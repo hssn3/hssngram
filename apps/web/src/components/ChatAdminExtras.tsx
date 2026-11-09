@@ -24,6 +24,7 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [title, setTitle] = useState(chat.title);
   const [slow, setSlow] = useState(chat.slowmodeSeconds ?? 0);
+  const [pins, setPins] = useState<Message[]>([]);
 
   const me = chat.members.find((member) => member.user.id === user?.id);
   const isManager = me?.role === 'owner' || me?.role === 'admin';
@@ -42,6 +43,23 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
   }, [chat.id, isManager, chat.type]);
 
   const lastSeq = chat.lastMessage?.seq ?? 0;
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api<{ pins: Message[] }>(`/chats/${chat.id}/pins`);
+        setPins(data.pins);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [chat.id]);
+
+  async function unpin(messageId: string) {
+    await api(`/chats/${chat.id}/pins/${messageId}`, { method: 'DELETE' });
+    setPins((current) => current.filter((item) => item.id !== messageId));
+    notify('سنجاق برداشته شد');
+  }
 
   async function uploadAvatar(file: File) {
     const token = getAccessToken();
@@ -185,6 +203,33 @@ export function ChatAdminExtras({ chat, notify, onClose }: Props) {
           </div>
         </>
       ) : null}
+
+      <div className="field">
+        <label>پیام‌های سنجاق‌شده ({pins.length})</label>
+        {pins.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 12 }}>پیامی سنجاق نشده است.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {pins.map((pin) => (
+              <div key={pin.id} className="user-row" style={{ padding: 6 }}>
+                <span className="info">
+                  <span className="n" style={{ fontSize: 12 }}>
+                    {pin.body ? pin.body.slice(0, 60) : 'پیوست'}
+                  </span>
+                  <span className="u">{new Date(pin.createdAt).toLocaleString('fa-IR')}</span>
+                </span>
+                <button
+                  className="btn"
+                  style={{ padding: '4px 10px' }}
+                  onClick={() => void unpin(pin.id)}
+                >
+                  برداشتن
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="field">
         <label>ابزارهای گفتگو</label>

@@ -604,6 +604,12 @@ function bindSocket(): void {
       chats,
     });
 
+    if (!isActive && !isOwn) {
+      const chat = chats.find((item) => item.id === message.chatId);
+      const preview = message.body || (message.kind === 'image' ? 'عکس' : 'پیام جدید');
+      state.notify(`${chat?.title ?? 'گفتگو'}: ${preview.slice(0, 50)}`);
+    }
+
     if (isActive && !isOwn) state.markRead(message.chatId, message.seq);
   });
 
