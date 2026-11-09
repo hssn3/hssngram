@@ -36,6 +36,9 @@ export function ToolsPage() {
   useEffect(() => {
     void (async () => {
       try {
+        const app = useApp.getState();
+        if (!app.user) await app.init();
+
         const [folderData, sessionData, statsData, blockedData] = await Promise.all([
           api<{ folders: Folder[] }>('/folders'),
           api<{ sessions: Session[] }>('/auth/sessions'),
