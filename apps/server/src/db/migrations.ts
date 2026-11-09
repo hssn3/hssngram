@@ -306,4 +306,22 @@ export const migrations: Migration[] = [
       create index if not exists chat_pins_chat_idx on chat_pins (chat_id, created_at desc);
     `,
   },
+  {
+    id: '0008_chat_folders',
+    sql: /* sql */ `
+      create table if not exists chat_folders (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        name text not null,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists chat_folders_user_idx on chat_folders (user_id);
+
+      create table if not exists chat_folder_items (
+        folder_id uuid not null references chat_folders(id) on delete cascade,
+        chat_id uuid not null references chats(id) on delete cascade,
+        primary key (folder_id, chat_id)
+      );
+    `,
+  },
 ];

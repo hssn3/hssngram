@@ -952,3 +952,50 @@ test('chat stats, shared links and read-all', async () => {
   const account = await call('GET', '/api/me/stats', { token: state.adminToken });
   assert.ok(account.body.stats.chats >= 1);
 });
+
+test('chat folders and date-filtered search', async () => {
+  const folder = await call('POST', '/api/folders', {
+    token: state.adminToken,
+    body: { name: 'خانواده' },
+  });
+  assert.equal(folder.status, 201);
+
+  const added = await call('POST', `/api/folders/${folder.body.folder.id}/chats`, {
+    token: state.adminToken,
+    body: { chatId: state.chatId },
+  });
+  assert.equal(added.status, 201);
+
+  const list = await call('GET', '/api/folders', { token: state.adminToken });
+  assert.equal(list.body.folders.length, 1);
+  assert.equal(list.body.folders[0].count, 1);
+
+  const chatIds = await call('GET', `/api/folders/${folder.body.folder.id}/chats`, {
+    token: state.adminToken,
+  });
+  assert.deepEqual(chatIds.body.chatIds, [state.chatId]);
+
+  const removed = await call(
+    'DELETE',
+    `/api/folders/${folder.body.folder.id}/chats/${state.chatId}`,
+    { token: state.adminToken },
+  );
+  assert.equal(removed.status, 200);
+
+  const past = new Date(Date.now() - 86400000).toISOString();
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const ranged = await call(
+    'GET',
+    `/api/search?q=${encodeURIComponent('لینک')}&from=${past}&to=${future}`,
+    { token: state.adminToken },
+  );
+  assert.equal(ranged.status, 200);
+  assert.ok(ranged.body.messages.length >= 1);
+
+  const none = await call(
+    'GET',
+    `/api/search?q=${encodeURIComponent('لینک')}&from=${future}`,
+    { token: state.adminToken },
+  );
+  assert.equal(none.body.messages.length, 0);
+});

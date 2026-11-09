@@ -189,7 +189,9 @@ export function messageRoutes(): Router {
     const { userId } = currentUser(req);
     const term = String(req.query.q ?? '');
     const kind = typeof req.query.kind === 'string' ? req.query.kind : null;
-    const messages = await searchMessages(userId, term, 30, kind);
+    const fromDate = typeof req.query.from === 'string' ? req.query.from : null;
+    const toDate = typeof req.query.to === 'string' ? req.query.to : null;
+    const messages = await searchMessages(userId, term, 30, kind, fromDate, toDate);
     res.json({ messages });
   });
 
@@ -203,5 +205,6 @@ async function getChatIdForMessage(messageId: string): Promise<string | null> {
   ]);
   return row?.chat_id ?? null;
 }
+
 
 
