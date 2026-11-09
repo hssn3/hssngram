@@ -313,6 +313,10 @@ export function SettingsDialog() {
         </button>
       </div>
 
+      <button className="btn" onClick={() => (window.location.href = '/tools')}>
+        <Icon name="settings" /> ابزارها (پوشه‌ها، جستجو، نشست‌ها)
+      </button>
+
       {user?.isAdmin ? (
         <button className="btn" onClick={() => openDialog('admin')}>
           <Icon name="shield" />

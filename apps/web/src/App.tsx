@@ -3,6 +3,7 @@ import { AuthPage } from './pages/AuthPage';
 import { MessengerPage } from './pages/MessengerPage';
 import { SupportPage } from './pages/SupportPage';
 import { JoinPage } from './pages/JoinPage';
+import { ToolsPage } from './pages/ToolsPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/app" element={<MessengerPage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/join/:token" element={<JoinPage />} />
+        <Route path="/tools" element={<ToolsPage />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </ErrorBoundary>
